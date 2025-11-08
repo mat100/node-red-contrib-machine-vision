@@ -1,0 +1,240 @@
+[
+    {
+        "id": "flow_edge_detection",
+        "type": "tab",
+        "label": "Edge Detection Example",
+        "disabled": false,
+        "info": "Example flow demonstrating edge detection with different methods"
+    },
+    {
+        "id": "trigger_edge",
+        "type": "inject",
+        "z": "flow_edge_detection",
+        "name": "Manual Trigger",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "trigger",
+        "payloadType": "str",
+        "x": 120,
+        "y": 200,
+        "wires": [
+            ["camera_capture_edge"]
+        ]
+    },
+    {
+        "id": "camera_capture_edge",
+        "type": "mv-camera-capture",
+        "z": "flow_edge_detection",
+        "name": "Camera Capture",
+        "cameraId": "test",
+        "apiUrl": "http://localhost:8000",
+        "autoConnect": false,
+        "resolution": {
+            "width": 1920,
+            "height": 1080
+        },
+        "x": 320,
+        "y": 200,
+        "wires": [
+            ["image_preview_original", "edge_canny", "edge_sobel", "edge_laplacian"]
+        ]
+    },
+    {
+        "id": "image_preview_original",
+        "type": "image",
+        "z": "flow_edge_detection",
+        "name": "Original Image",
+        "width": "320",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 560,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "edge_canny",
+        "type": "mv-edge-detect",
+        "z": "flow_edge_detection",
+        "name": "Canny Edge",
+        "apiUrl": "http://localhost:8000",
+        "method": "canny",
+        "cannyLow": 50,
+        "cannyHigh": 150,
+        "sobelThreshold": 50,
+        "laplacianThreshold": 30,
+        "roiEnabled": false,
+        "roi": {
+            "x": 0,
+            "y": 0,
+            "width": 500,
+            "height": 500
+        },
+        "blurEnabled": true,
+        "blurKernel": 5,
+        "bilateralEnabled": false,
+        "morphologyEnabled": false,
+        "morphologyOperation": "close",
+        "minContourArea": 100,
+        "maxContourArea": 50000,
+        "maxContours": 10,
+        "x": 560,
+        "y": 200,
+        "wires": [
+            ["image_preview_canny"]
+        ]
+    },
+    {
+        "id": "edge_sobel",
+        "type": "mv-edge-detect",
+        "z": "flow_edge_detection",
+        "name": "Sobel Edge",
+        "apiUrl": "http://localhost:8000",
+        "method": "sobel",
+        "cannyLow": 50,
+        "cannyHigh": 150,
+        "sobelThreshold": 40,
+        "laplacianThreshold": 30,
+        "roiEnabled": false,
+        "roi": {
+            "x": 0,
+            "y": 0,
+            "width": 500,
+            "height": 500
+        },
+        "blurEnabled": false,
+        "blurKernel": 5,
+        "bilateralEnabled": true,
+        "morphologyEnabled": false,
+        "morphologyOperation": "close",
+        "minContourArea": 50,
+        "maxContourArea": 100000,
+        "maxContours": 15,
+        "x": 560,
+        "y": 280,
+        "wires": [
+            ["image_preview_sobel"]
+        ]
+    },
+    {
+        "id": "edge_laplacian",
+        "type": "mv-edge-detect",
+        "z": "flow_edge_detection",
+        "name": "Laplacian Edge",
+        "apiUrl": "http://localhost:8000",
+        "method": "laplacian",
+        "cannyLow": 50,
+        "cannyHigh": 150,
+        "sobelThreshold": 50,
+        "laplacianThreshold": 25,
+        "roiEnabled": false,
+        "roi": {
+            "x": 0,
+            "y": 0,
+            "width": 500,
+            "height": 500
+        },
+        "blurEnabled": true,
+        "blurKernel": 3,
+        "bilateralEnabled": false,
+        "morphologyEnabled": true,
+        "morphologyOperation": "open",
+        "minContourArea": 20,
+        "maxContourArea": 100000,
+        "maxContours": 25,
+        "x": 560,
+        "y": 360,
+        "wires": [
+            ["image_preview_laplacian"]
+        ]
+    },
+    {
+        "id": "image_preview_canny",
+        "type": "image",
+        "z": "flow_edge_detection",
+        "name": "Canny Result",
+        "width": "160",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 760,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "image_preview_sobel",
+        "type": "image",
+        "z": "flow_edge_detection",
+        "name": "Sobel Result",
+        "width": "160",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 760,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "image_preview_laplacian",
+        "type": "image",
+        "z": "flow_edge_detection",
+        "name": "Laplacian Result",
+        "width": "160",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 770,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "comment_edge_1",
+        "type": "comment",
+        "z": "flow_edge_detection",
+        "name": "Edge Detection Comparison",
+        "info": "This flow demonstrates edge detection using three different methods:\n1. Canny - Most popular, good for clean edges\n2. Sobel - Good for directional edges\n3. Laplacian - Sensitive to noise, finds rapid changes\n\nEach method has different preprocessing:\n- Canny uses Gaussian blur\n- Sobel uses bilateral filter (edge-preserving)\n- Laplacian uses blur + morphology\n\nTip: You can add your own logic to compare results using join or function nodes.",
+        "x": 170,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "comment_edge_2",
+        "type": "comment",
+        "z": "flow_edge_detection",
+        "name": "Setup Instructions",
+        "info": "Before running:\n1. Start Python backend: cd python-backend && python3 main.py\n2. Install image node: npm install node-red-contrib-image-output\n3. Click 'Manual Trigger' to run edge detection\n\nYou can modify each edge detection node's parameters to experiment with different settings.",
+        "x": 140,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "comment_edge_3",
+        "type": "comment",
+        "z": "flow_edge_detection",
+        "name": "ROI Example",
+        "info": "To use Region of Interest (ROI):\n1. Double-click any edge detection node\n2. Enable ROI checkbox\n3. Set X, Y position and Width, Height\n4. Only edges within the ROI will be detected\n\nThis is useful for focusing on specific areas of the image.",
+        "x": 560,
+        "y": 440,
+        "wires": []
+    }
+]

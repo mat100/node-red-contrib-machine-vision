@@ -1,0 +1,209 @@
+[
+    {
+        "id": "flow_mv_example",
+        "type": "tab",
+        "label": "Machine Vision Example",
+        "disabled": false,
+        "info": "Example flow demonstrating Machine Vision inspection with multiple detections"
+    },
+    {
+        "id": "inject_trigger",
+        "type": "inject",
+        "z": "flow_mv_example",
+        "name": "Manual Trigger",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "trigger",
+        "payloadType": "str",
+        "x": 120,
+        "y": 200,
+        "wires": [
+            ["camera_capture"]
+        ]
+    },
+    {
+        "id": "camera_capture",
+        "type": "mv-camera-capture",
+        "z": "flow_mv_example",
+        "name": "Camera Capture",
+        "cameraId": "test",
+        "apiUrl": "http://localhost:8000",
+        "autoConnect": false,
+        "resolution": {
+            "width": 1920,
+            "height": 1080
+        },
+        "x": 320,
+        "y": 200,
+        "wires": [
+            ["image_preview_1", "template_match_1", "template_match_2", "template_match_3"]
+        ]
+    },
+    {
+        "id": "image_preview_1",
+        "type": "image",
+        "z": "flow_mv_example",
+        "name": "Original Image",
+        "width": "320",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 560,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "template_match_1",
+        "type": "mv-template-match",
+        "z": "flow_mv_example",
+        "name": "Find Screw 1",
+        "apiUrl": "http://localhost:8000",
+        "templateSource": "library",
+        "templateId": "tmpl_screw_1",
+        "threshold": 0.8,
+        "method": "TM_CCOEFF_NORMED",
+        "roiEnabled": true,
+        "roi": {
+            "x": 0,
+            "y": 0,
+            "width": 500,
+            "height": 500
+        },
+        "multiScale": false,
+        "scaleRange": [0.8, 1.2],
+        "x": 560,
+        "y": 200,
+        "wires": [
+            ["image_preview_2"]
+        ]
+    },
+    {
+        "id": "template_match_2",
+        "type": "mv-template-match",
+        "z": "flow_mv_example",
+        "name": "Find Screw 2",
+        "apiUrl": "http://localhost:8000",
+        "templateSource": "library",
+        "templateId": "tmpl_screw_2",
+        "threshold": 0.8,
+        "method": "TM_CCOEFF_NORMED",
+        "roiEnabled": true,
+        "roi": {
+            "x": 500,
+            "y": 0,
+            "width": 500,
+            "height": 500
+        },
+        "multiScale": false,
+        "scaleRange": [0.8, 1.2],
+        "x": 560,
+        "y": 280,
+        "wires": [
+            ["image_preview_3"]
+        ]
+    },
+    {
+        "id": "template_match_3",
+        "type": "mv-template-match",
+        "z": "flow_mv_example",
+        "name": "Find Hole",
+        "apiUrl": "http://localhost:8000",
+        "templateSource": "library",
+        "templateId": "tmpl_hole",
+        "threshold": 0.75,
+        "method": "TM_CCOEFF_NORMED",
+        "roiEnabled": false,
+        "roi": {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100
+        },
+        "multiScale": true,
+        "scaleRange": [0.8, 1.2],
+        "x": 560,
+        "y": 360,
+        "wires": [
+            ["image_preview_4"]
+        ]
+    },
+    {
+        "id": "image_preview_2",
+        "type": "image",
+        "z": "flow_mv_example",
+        "name": "After Screw 1",
+        "width": "160",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 760,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "image_preview_3",
+        "type": "image",
+        "z": "flow_mv_example",
+        "name": "After Screw 2",
+        "width": "160",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 760,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "image_preview_4",
+        "type": "image",
+        "z": "flow_mv_example",
+        "name": "After Hole",
+        "width": "160",
+        "data": "thumbnail",
+        "dataType": "msg",
+        "thumbnail": false,
+        "active": true,
+        "pass": false,
+        "outputs": 0,
+        "x": 750,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "comment_1",
+        "type": "comment",
+        "z": "flow_mv_example",
+        "name": "Machine Vision Inspection Flow",
+        "info": "This flow demonstrates:\n1. Image capture (using test image)\n2. Multiple parallel detections (3 template matches)\n3. Visual preview of detection results\n\nNote: The 'image' nodes require node-red-contrib-image-output\nTip: You can add your own logic to aggregate results using join or function nodes",
+        "x": 170,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "comment_2",
+        "type": "comment",
+        "z": "flow_mv_example",
+        "name": "⚠️ Setup Required",
+        "info": "Before running:\n1. Start Python backend: cd python-backend && python3 main.py\n2. Install image node: npm install node-red-contrib-image-output\n3. Create templates or use test templates\n4. Click 'Manual Trigger' to run inspection",
+        "x": 130,
+        "y": 100,
+        "wires": []
+    }
+]

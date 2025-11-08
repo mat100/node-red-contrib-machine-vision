@@ -1,0 +1,87 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-image-import', {
+        category: 'machine vision',
+        color: '#a6bbcf',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "file.png",
+        label: function() {
+            return this.name || "Image Import";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "image import",
+        inputLabels: "file path",
+        outputLabels: ["image imported"]
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-image-import">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-tips">
+        <p><b>Input:</b> msg.filepath or msg.payload with path to image file</p>
+        <p><b>Example:</b> /dev/shm/image.jpg or /tmp/capture.png</p>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-image-import">
+    <p>Imports an image from the file system (e.g., /dev/shm or disk) for processing by vision nodes.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>filepath <span class="property-type">string</span></dt>
+        <dd>Path to the image file to import</dd>
+        <dt>payload <span class="property-type">string</span></dt>
+        <dd>Alternative: file path can be provided in payload</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>VisionObject with image_id, timestamp, thumbnail, and metadata</dd>
+        <dt>payload.image_id <span class="property-type">string</span></dt>
+        <dd>Unique identifier for the imported image</dd>
+        <dt>payload.thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64 encoded thumbnail for preview</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node imports images created by external applications that write to shared memory (/dev/shm) or disk.</p>
+    <p>The imported image is registered with ImageManager and receives an image_id that can be used by all vision processing nodes (edge-detect, color-detect, template-match, etc.)</p>
+
+    <h3>Workflow Example</h3>
+    <pre>
+[External App] → /dev/shm/capture.jpg
+    ↓
+[inject: msg.filepath = "/dev/shm/capture.jpg"]
+    ↓
+[mv-image-import] → registers image, returns image_id
+    ↓
+[mv-edge-detect] → processes the imported image
+    ↓
+[mv-overlay] → displays results
+    </pre>
+
+    <h3>Supported Formats</h3>
+    <ul>
+        <li>JPG / JPEG</li>
+        <li>PNG</li>
+        <li>BMP</li>
+        <li>TIFF</li>
+        <li>Any format supported by OpenCV</li>
+    </ul>
+</script>

@@ -1,0 +1,231 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-edge-detect', {
+        category: 'machine vision',
+        color: '#87a980',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            method: {value: "canny", required: true},
+            cannyLow: {value: 50, validate: RED.validators.number()},
+            cannyHigh: {value: 150, validate: RED.validators.number()},
+            sobelThreshold: {value: 50, validate: RED.validators.number()},
+            laplacianThreshold: {value: 30, validate: RED.validators.number()},
+            blurEnabled: {value: false},
+            blurKernel: {value: 5, validate: RED.validators.number()},
+            bilateralEnabled: {value: false},
+            morphologyEnabled: {value: false},
+            morphologyOperation: {value: "close"},
+            minContourArea: {value: 10, validate: RED.validators.number()},
+            maxContourArea: {value: 100000, validate: RED.validators.number()},
+            maxContours: {value: 20, validate: RED.validators.number()}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-crop",
+        label: function() {
+            return this.name || "Edge Detect (" + this.method + ")";
+        },
+        paletteLabel: "edge detect",
+        oneditprepare: function() {
+            // Method change handler
+            $("#node-input-method").on('change', function() {
+                const method = $(this).val();
+
+                // Hide all method-specific settings
+                $(".canny-params, .sobel-params, .laplacian-params").hide();
+
+                // Show relevant settings
+                if (method === "canny") {
+                    $(".canny-params").show();
+                } else if (method === "sobel" || method === "scharr" || method === "prewitt") {
+                    $(".sobel-params").show();
+                } else if (method === "laplacian") {
+                    $(".laplacian-params").show();
+                }
+            }).trigger('change');
+
+            // Preprocessing toggles
+            $("#node-input-blurEnabled").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $(".blur-params").show();
+                } else {
+                    $(".blur-params").hide();
+                }
+            }).trigger('change');
+
+            $("#node-input-morphologyEnabled").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $(".morphology-params").show();
+                } else {
+                    $(".morphology-params").hide();
+                }
+            }).trigger('change');
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-edge-detect">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <hr>
+    <h4>Edge Detection Method</h4>
+
+    <div class="form-row">
+        <label for="node-input-method"><i class="fa fa-filter"></i> Method</label>
+        <select id="node-input-method">
+            <option value="canny">Canny</option>
+            <option value="sobel">Sobel</option>
+            <option value="laplacian">Laplacian</option>
+            <option value="scharr">Scharr</option>
+            <option value="prewitt">Prewitt</option>
+            <option value="morphological_gradient">Morphological Gradient</option>
+        </select>
+    </div>
+
+    <!-- Canny Parameters -->
+    <div class="canny-params">
+        <div class="form-row">
+            <label for="node-input-cannyLow"><i class="fa fa-sliders"></i> Low Threshold</label>
+            <input type="number" id="node-input-cannyLow" placeholder="50" min="0" max="255">
+        </div>
+        <div class="form-row">
+            <label for="node-input-cannyHigh"><i class="fa fa-sliders"></i> High Threshold</label>
+            <input type="number" id="node-input-cannyHigh" placeholder="150" min="0" max="255">
+        </div>
+    </div>
+
+    <!-- Sobel/Scharr/Prewitt Parameters -->
+    <div class="sobel-params" style="display:none;">
+        <div class="form-row">
+            <label for="node-input-sobelThreshold"><i class="fa fa-sliders"></i> Threshold</label>
+            <input type="number" id="node-input-sobelThreshold" placeholder="50" min="0" max="255">
+        </div>
+    </div>
+
+    <!-- Laplacian Parameters -->
+    <div class="laplacian-params" style="display:none;">
+        <div class="form-row">
+            <label for="node-input-laplacianThreshold"><i class="fa fa-sliders"></i> Threshold</label>
+            <input type="number" id="node-input-laplacianThreshold" placeholder="30" min="0" max="255">
+        </div>
+    </div>
+
+    <hr>
+    <h4>Preprocessing</h4>
+
+    <div class="form-row">
+        <label for="node-input-blurEnabled"><i class="fa fa-adjust"></i> Gaussian Blur</label>
+        <input type="checkbox" id="node-input-blurEnabled" style="width:auto;">
+    </div>
+
+    <div class="blur-params" style="display:none;">
+        <div class="form-row">
+            <label for="node-input-blurKernel">Kernel Size</label>
+            <input type="number" id="node-input-blurKernel" placeholder="5" min="3" max="31" step="2">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-bilateralEnabled"><i class="fa fa-adjust"></i> Bilateral Filter</label>
+        <input type="checkbox" id="node-input-bilateralEnabled" style="width:auto;">
+        <span class="form-tips" style="width:auto; margin-left:10px;">Edge-preserving blur</span>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-morphologyEnabled"><i class="fa fa-adjust"></i> Morphology</label>
+        <input type="checkbox" id="node-input-morphologyEnabled" style="width:auto;">
+    </div>
+
+    <div class="morphology-params" style="display:none;">
+        <div class="form-row">
+            <label for="node-input-morphologyOperation">Operation</label>
+            <select id="node-input-morphologyOperation">
+                <option value="close">Close</option>
+                <option value="open">Open</option>
+                <option value="gradient">Gradient</option>
+            </select>
+        </div>
+    </div>
+
+    <hr>
+    <h4>Contour Filtering</h4>
+
+    <div class="form-row">
+        <label for="node-input-minContourArea"><i class="fa fa-compress"></i> Min Area</label>
+        <input type="number" id="node-input-minContourArea" placeholder="10" min="0">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-maxContourArea"><i class="fa fa-expand"></i> Max Area</label>
+        <input type="number" id="node-input-maxContourArea" placeholder="100000" min="0">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-maxContours"><i class="fa fa-list"></i> Max Contours</label>
+        <input type="number" id="node-input-maxContours" placeholder="20" min="1" max="100">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-edge-detect">
+    <p>Performs edge detection on an image using various algorithms.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>The ID of the image to process</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>Detection results including:
+            <ul>
+                <li><code>edges_found</code> - Whether edges were detected</li>
+                <li><code>contour_count</code> - Number of contours found</li>
+                <li><code>contours</code> - Array of contour details</li>
+                <li><code>edge_ratio</code> - Ratio of edge pixels to total</li>
+            </ul>
+        </dd>
+        <dt>detections <span class="property-type">array</span></dt>
+        <dd>Accumulated array of all detection results in the chain</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64 encoded thumbnail with edge overlay</dd>
+    </dl>
+
+    <h3>Methods</h3>
+    <ul>
+        <li><b>Canny</b> - Most popular, good for clean edges</li>
+        <li><b>Sobel</b> - Good for directional edges</li>
+        <li><b>Laplacian</b> - Sensitive to noise, finds rapid changes</li>
+        <li><b>Scharr</b> - More accurate than Sobel</li>
+        <li><b>Prewitt</b> - Similar to Sobel, different kernel</li>
+        <li><b>Morphological Gradient</b> - Good for thick edges</li>
+    </ul>
+
+    <h3>Preprocessing Options</h3>
+    <ul>
+        <li><b>Gaussian Blur</b> - Reduces noise before edge detection</li>
+        <li><b>Bilateral Filter</b> - Reduces noise while preserving edges</li>
+        <li><b>Morphology</b> - Structural operations to clean up image</li>
+    </ul>
+
+    <h3>Details</h3>
+    <p>This node detects edges and contours in an image. It can be configured with:</p>
+    <ul>
+        <li>Different edge detection algorithms</li>
+        <li>Region of Interest (ROI) to limit detection area</li>
+        <li>Preprocessing to improve detection quality</li>
+        <li>Contour filtering by area and count</li>
+    </ul>
+
+    <p>The node adds its detection results to the message chain, allowing multiple
+    detection nodes to work on the same image in parallel.</p>
+</script>

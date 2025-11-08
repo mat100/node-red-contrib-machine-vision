@@ -1,0 +1,98 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-aruco-detect', {
+        category: 'machine vision',
+        color: '#4CAF50',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            dictionary: {value: "DICT_4X4_50"}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-qrcode",
+        label: function() {
+            return this.name || "ArUco Detect";
+        },
+        paletteLabel: "ArUco detect"
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-aruco-detect">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="ArUco Detection">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-dictionary"><i class="fa fa-book"></i> Dictionary</label>
+        <select id="node-input-dictionary">
+            <option value="DICT_4X4_50">DICT_4X4_50</option>
+            <option value="DICT_4X4_100">DICT_4X4_100</option>
+            <option value="DICT_4X4_250">DICT_4X4_250</option>
+            <option value="DICT_4X4_1000">DICT_4X4_1000</option>
+            <option value="DICT_5X5_50">DICT_5X5_50</option>
+            <option value="DICT_5X5_100">DICT_5X5_100</option>
+            <option value="DICT_5X5_250">DICT_5X5_250</option>
+            <option value="DICT_5X5_1000">DICT_5X5_1000</option>
+            <option value="DICT_6X6_50">DICT_6X6_50</option>
+            <option value="DICT_6X6_100">DICT_6X6_100</option>
+            <option value="DICT_6X6_250">DICT_6X6_250</option>
+            <option value="DICT_6X6_1000">DICT_6X6_1000</option>
+            <option value="DICT_7X7_50">DICT_7X7_50</option>
+            <option value="DICT_7X7_100">DICT_7X7_100</option>
+            <option value="DICT_7X7_250">DICT_7X7_250</option>
+            <option value="DICT_7X7_1000">DICT_7X7_1000</option>
+            <option value="DICT_ARUCO_ORIGINAL">DICT_ARUCO_ORIGINAL</option>
+        </select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-aruco-detect">
+    <p>Detects ArUco fiducial markers in images for establishing reference coordinate systems.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>Image ID from camera capture or msg.payload.image_id</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">VisionObject</span></dt>
+        <dd>
+            <ul>
+                <li><code>object_id</code>: "aruco_&lt;marker_id&gt;"</li>
+                <li><code>object_type</code>: "aruco_marker"</li>
+                <li><code>rotation</code>: Marker rotation angle (0-360°)</li>
+                <li><code>center</code>: {x, y} marker center coordinates</li>
+                <li><code>properties.marker_id</code>: ArUco marker ID number</li>
+            </ul>
+        </dd>
+        <dt>reference_object <span class="property-type">object</span></dt>
+        <dd>First detected marker is set as reference for downstream rotation nodes. Contains rotation, center, and marker_id.</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>Detects ArUco markers and sends N messages for N detected markers. The first marker becomes the <code>reference_object</code> for downstream processing.</p>
+
+    <p><strong>Common Dictionaries:</strong></p>
+    <ul>
+        <li><strong>DICT_4X4_50</strong>: 4x4 bits, 50 markers (good balance)</li>
+        <li><strong>DICT_5X5_100</strong>: 5x5 bits, 100 markers</li>
+        <li><strong>DICT_6X6_250</strong>: 6x6 bits, 250 markers (higher resolution)</li>
+    </ul>
+
+    <p><strong>Use Case:</strong> Place ArUco marker on fixture/holder, detect it to establish rotation reference for pick-and-place operations.</p>
+
+    <h3>Example Flow</h3>
+    <pre>
+[Camera Capture] → [ArUco Detect] → [Edge Detect] → [Rotation Detect]
+                         ↓                 ↓               ↓
+                   sets reference    finds parts    measures relative rotation
+    </pre>
+</script>

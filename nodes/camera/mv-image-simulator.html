@@ -1,0 +1,74 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-image-simulator', {
+        category: 'machine vision',
+        color: '#c0c0c0',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            imageSource: {value: "test"},
+            testText: {value: "Test Image"},
+            autoTrigger: {value: false},
+            triggerInterval: {value: 5000}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "file-image-o.png",
+        label: function() {
+            return this.name || "Image Simulator";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "image simulator",
+        inputLabels: "trigger/control",
+        outputLabels: ["test image"]
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-image-simulator">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <hr>
+    <h4>Auto Trigger</h4>
+
+    <div class="form-row">
+        <label for="node-input-autoTrigger"><i class="fa fa-repeat"></i> Auto Trigger</label>
+        <input type="checkbox" id="node-input-autoTrigger" style="width: auto;">
+        <label for="node-input-autoTrigger" style="width: auto; margin-left: 10px;">
+            Automatically generate images
+        </label>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-triggerInterval"><i class="fa fa-clock-o"></i> Interval (ms)</label>
+        <input type="number" id="node-input-triggerInterval" min="100" max="60000" step="100" style="width: 100px;">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-image-simulator">
+    <p>Generates test images for development and testing without a camera.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string</span></dt>
+        <dd>"start" to begin auto-trigger, "stop" to stop, or any other to trigger once</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>Same as camera capture node output</dd>
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>Test image identifier</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64 encoded test image</dd>
+    </dl>
+</script>

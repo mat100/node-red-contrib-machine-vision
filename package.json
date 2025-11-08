@@ -1,0 +1,66 @@
+{
+  "name": "node-red-contrib-machine-vision-flow",
+  "version": "1.0.0",
+  "description": "Industrial machine vision nodes for Node-RED with template matching, edge detection, color detection, ArUco markers, and rotation analysis",
+  "author": "Machine Vision Flow",
+  "license": "GPL-3.0",
+  "keywords": [
+    "node-red",
+    "machine-vision",
+    "computer-vision",
+    "opencv",
+    "template-matching",
+    "inspection",
+    "quality-control",
+    "image-processing",
+    "edge-detection",
+    "color-detection",
+    "aruco",
+    "qr-code",
+    "automation",
+    "factory-automation",
+    "keyence",
+    "cognex"
+  ],
+  "node-red": {
+    "version": ">=2.0.0",
+    "nodes": {
+      "mv-config": "nodes/config/mv-config.js",
+      "mv-camera-capture": "nodes/camera/mv-camera-capture.js",
+      "mv-image-simulator": "nodes/camera/mv-image-simulator.js",
+      "mv-live-preview": "nodes/camera/mv-live-preview.js",
+      "mv-image-import": "nodes/camera/mv-image-import.js",
+      "mv-template-match": "nodes/vision/mv-template-match.js",
+      "mv-edge-detect": "nodes/vision/mv-edge-detect.js",
+      "mv-color-detect": "nodes/vision/mv-color-detect.js",
+      "mv-aruco-detect": "nodes/vision/mv-aruco-detect.js",
+      "mv-rotation-detect": "nodes/vision/mv-rotation-detect.js",
+      "mv-roi-extract": "nodes/vision/mv-roi-extract.js",
+      "mv-overlay": "nodes/output/mv-overlay.js"
+    }
+  },
+  "dependencies": {
+    "axios": "~1.6.0",
+    "form-data": "~4.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mat100/node-red-contrib-machine-vision.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mat100/node-red-contrib-machine-vision/issues"
+  },
+  "homepage": "https://github.com/mat100/node-red-contrib-machine-vision#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "nodes/**/*.js",
+    "nodes/**/*.html",
+    "README.md",
+    "LICENSE"
+  ]
+}

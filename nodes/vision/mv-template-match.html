@@ -1,0 +1,181 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-template-match', {
+        category: 'machine vision',
+        color: '#87a980',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            templateSource: {value: "library"},
+            templateId: {value: ""},
+            threshold: {value: 0.8, validate: function(v) { return v >= 0 && v <= 1; }},
+            method: {value: "TM_CCOEFF_NORMED"},
+            multiScale: {value: false},
+            scaleRange: {value: [0.8, 1.2]}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "search.png",
+        label: function() {
+            return this.name || "Template Match";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "template match",
+        inputLabels: "image to search",
+        outputLabels: ["match result"],
+        oneditprepare: function() {
+            const node = this;
+
+            // Initialize scale range
+            $("#node-input-scale-min").val(this.scaleRange[0] || 0.8);
+            $("#node-input-scale-max").val(this.scaleRange[1] || 1.2);
+
+            // Toggle scale fields
+            $("#node-input-multiScale").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $("#scale-settings").show();
+                } else {
+                    $("#scale-settings").hide();
+                }
+            }).trigger('change');
+
+            // Load template list
+            $("#template-refresh").on('click', function() {
+                const configId = $("#node-input-apiConfig").val();
+                const configNode = RED.nodes.node(configId);
+                const apiUrl = configNode ? configNode.apiUrl : 'http://localhost:8000';
+
+                $.ajax({
+                    url: apiUrl + "/api/template/list",
+                    type: "GET",
+                    success: function(templates) {
+                        const select = $("#node-input-templateId");
+                        select.empty();
+                        select.append('<option value="">-- Select Template --</option>');
+                        templates.forEach(function(tmpl) {
+                            select.append($('<option>', {
+                                value: tmpl.id,
+                                text: tmpl.name + ' (' + tmpl.id + ')'
+                            }));
+                        });
+                        // Restore selected value
+                        select.val(node.templateId);
+                    },
+                    error: function(err) {
+                        console.error("Failed to load templates:", err);
+                    }
+                });
+            });
+
+            // Load templates on open
+            $("#template-refresh").trigger('click');
+        },
+        oneditsave: function() {
+            // Save scale range
+            this.scaleRange = [
+                parseFloat($("#node-input-scale-min").val()) || 0.8,
+                parseFloat($("#node-input-scale-max").val()) || 1.2
+            ];
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-template-match">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <hr>
+    <h4>Template Settings</h4>
+
+    <div class="form-row">
+        <label for="node-input-templateId"><i class="fa fa-image"></i> Template</label>
+        <select id="node-input-templateId" style="width: 250px;">
+            <option value="">-- Select Template --</option>
+        </select>
+        <button type="button" id="template-refresh" class="red-ui-button" style="margin-left: 10px;">
+            <i class="fa fa-refresh"></i>
+        </button>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-threshold"><i class="fa fa-sliders"></i> Threshold</label>
+        <input type="number" id="node-input-threshold" min="0" max="1" step="0.05" style="width: 100px;">
+        <span style="margin-left: 10px; color: #666;">0.0 - 1.0 (higher = stricter)</span>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-method"><i class="fa fa-cogs"></i> Method</label>
+        <select id="node-input-method" style="width: 250px;">
+            <option value="TM_CCOEFF_NORMED">Correlation Coefficient (Normalized)</option>
+            <option value="TM_CCOEFF">Correlation Coefficient</option>
+            <option value="TM_CCORR_NORMED">Cross Correlation (Normalized)</option>
+            <option value="TM_CCORR">Cross Correlation</option>
+            <option value="TM_SQDIFF_NORMED">Squared Difference (Normalized)</option>
+            <option value="TM_SQDIFF">Squared Difference</option>
+        </select>
+    </div>
+
+    <hr>
+    <h4>Multi-Scale Search</h4>
+
+    <div class="form-row">
+        <label for="node-input-multiScale"><i class="fa fa-expand"></i> Multi-Scale</label>
+        <input type="checkbox" id="node-input-multiScale" style="width: auto;">
+        <label for="node-input-multiScale" style="width: auto; margin-left: 10px;">
+            Search at multiple scales
+        </label>
+    </div>
+
+    <div id="scale-settings" style="display: none; margin-left: 20px;">
+        <div class="form-row">
+            <label style="width: 100px;">Scale Range:</label>
+            <label for="node-input-scale-min" style="width: 40px;">Min:</label>
+            <input type="number" id="node-input-scale-min" style="width: 80px" min="0.1" max="2" step="0.1">
+            <label for="node-input-scale-max" style="width: 40px; margin-left: 10px;">Max:</label>
+            <input type="number" id="node-input-scale-max" style="width: 80px" min="0.1" max="2" step="0.1">
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-template-match">
+    <p>Performs template matching on an input image to find a specified pattern.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>The ID of the image to search in</dd>
+        <dt class="optional">templateId <span class="property-type">string</span></dt>
+        <dd>Override the configured template ID</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload.detection <span class="property-type">object</span></dt>
+        <dd>Detection result including found status, matches, and score</dd>
+        <dt>detections <span class="property-type">array</span></dt>
+        <dd>Accumulated array of all detection results</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Updated thumbnail with match overlay</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node searches for a template pattern within the input image using OpenCV template matching.</p>
+
+    <h4>Methods:</h4>
+    <ul>
+        <li><b>Correlation Coefficient</b> - Good for general matching</li>
+        <li><b>Cross Correlation</b> - Works well with bright objects</li>
+        <li><b>Squared Difference</b> - Lower values indicate better match</li>
+    </ul>
+
+    <h4>Multi-Scale Search:</h4>
+    <p>Enable to find templates at different scales (sizes) within the specified range.</p>
+</script>

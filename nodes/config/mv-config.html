@@ -1,0 +1,194 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-config', {
+        category: 'config',
+        defaults: {
+            name: {value: "", required: false},
+            apiUrl: {value: "http://localhost:8000", required: true, validate: RED.validators.regex(/^https?:\/\/.+/)},
+            timeout: {value: 30000, required: true, validate: RED.validators.number()},
+            _connectionStatus: {value: null}  // Internal: don't persist, just for UI
+        },
+        credentials: {
+            apiKey: {type: "text"},
+            apiToken: {type: "password"}
+        },
+        label: function() {
+            const baseName = this.name || this.apiUrl || "MV Backend";
+            // Show status icon if available
+            if (this._connectionStatus === 'connected') {
+                return baseName + " ✓";
+            } else if (this._connectionStatus === 'disconnected') {
+                return baseName + " ✗";
+            }
+            return baseName;
+        },
+        oneditprepare: function() {
+            const node = this;
+
+            // Test connection function
+            function testConnection() {
+                const apiUrl = $("#node-config-input-apiUrl").val();
+                const timeout = parseInt($("#node-config-input-timeout").val()) || 30000;
+                const btn = $("#node-config-test-connection");
+                const statusDiv = $("#connection-status");
+
+                // Disable button during test
+                btn.prop('disabled', true);
+                statusDiv.html('<i class="fa fa-spinner fa-spin"></i> Testing connection...').removeClass().addClass('connection-status testing');
+
+                // Test connection to /api/system/health
+                $.ajax({
+                    url: apiUrl + '/api/system/health',
+                    method: 'GET',
+                    timeout: timeout,
+                    success: function(data) {
+                        // Success - show backend info
+                        let message = '<i class="fa fa-check-circle"></i> Connected successfully';
+                        if (data.status === 'healthy') {
+                            message += ' - Backend is healthy';
+                        }
+                        statusDiv.html(message).removeClass().addClass('connection-status success');
+                        node._connectionStatus = 'connected';
+                    },
+                    error: function(xhr, status, error) {
+                        // Error - show details
+                        let message = '<i class="fa fa-times-circle"></i> Connection failed';
+                        if (status === 'timeout') {
+                            message += ' - Request timeout';
+                        } else if (xhr.status === 0) {
+                            message += ' - Cannot reach server';
+                        } else {
+                            message += ' - ' + (error || 'Unknown error');
+                        }
+                        statusDiv.html(message).removeClass().addClass('connection-status error');
+                        node._connectionStatus = 'disconnected';
+                    },
+                    complete: function() {
+                        // Re-enable button
+                        btn.prop('disabled', false);
+                    }
+                });
+            }
+
+            // Test Connection button handler
+            $("#node-config-test-connection").click(testConnection);
+
+            // Auto-test on dialog open
+            setTimeout(testConnection, 100);
+        },
+        oneditsave: function() {
+            const apiUrl = $("#node-config-input-apiUrl").val();
+
+            // Validate URL format
+            if (!apiUrl || !apiUrl.match(/^https?:\/\/.+/)) {
+                RED.notify("Invalid API URL format. Must start with http:// or https://", "error");
+                return false;
+            }
+
+            // Note: We don't block save if backend is unreachable - user might be configuring for later
+            return true;
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-config">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="MV Backend">
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-apiUrl"><i class="fa fa-server"></i> API URL</label>
+        <input type="text" id="node-config-input-apiUrl" placeholder="http://localhost:8000">
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+        <input type="number" id="node-config-input-timeout" placeholder="30000" min="1000" max="120000">
+    </div>
+
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-config-test-connection" class="red-ui-button">
+            <i class="fa fa-plug"></i> Test Connection
+        </button>
+    </div>
+
+    <div class="form-row">
+        <div id="connection-status" class="connection-status"></div>
+    </div>
+
+    <hr>
+    <h4>Credentials (Optional)</h4>
+    <div class="form-tips">
+        <b>Note:</b> Credentials support is prepared for future authentication features.
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-apiKey"><i class="fa fa-key"></i> API Key</label>
+        <input type="text" id="node-config-input-apiKey" placeholder="Optional API key">
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-apiToken"><i class="fa fa-lock"></i> API Token</label>
+        <input type="password" id="node-config-input-apiToken" placeholder="Optional API token">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-config">
+    <p>Configuration node for Machine Vision backend connection.</p>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Name</dt>
+        <dd>Optional name for this configuration (e.g., "Local Dev", "Production")</dd>
+
+        <dt>API URL</dt>
+        <dd>Base URL of the MachineVisionFlow backend (e.g., http://localhost:8000)</dd>
+
+        <dt>Timeout</dt>
+        <dd>Request timeout in milliseconds (default: 30000ms = 30 seconds)</dd>
+
+        <dt>API Key / Token</dt>
+        <dd>Optional credentials for future authentication features</dd>
+    </dl>
+
+    <h3>Test Connection</h3>
+    <p>Use the "Test Connection" button to verify that the backend is accessible and healthy.
+    This sends a request to <code>/api/system/health</code> endpoint.</p>
+
+    <h3>Details</h3>
+    <p>This configuration node is shared by all Machine Vision nodes (camera, vision, etc.).
+    Define the backend connection once, then select this config in each MV node.</p>
+
+    <p><b>Benefits:</b></p>
+    <ul>
+        <li>Single point of configuration for all MV nodes</li>
+        <li>Easy environment switching (dev/prod/staging)</li>
+        <li>Connection validation before deployment</li>
+        <li>Prepared for future authentication</li>
+    </ul>
+</script>
+
+<style>
+    .connection-status {
+        padding: 10px;
+        margin-top: 5px;
+        border-radius: 3px;
+        font-weight: bold;
+    }
+    .connection-status.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .connection-status.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    .connection-status.testing {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+</style>

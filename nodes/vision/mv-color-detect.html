@@ -1,0 +1,158 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-color-detect', {
+        category: 'Machine Vision',
+        color: '#FFA500',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            expectedColor: {value: ""},
+            minPercentage: {value: 50, validate: RED.validators.number()},
+            method: {value: "histogram"},
+            useContourMask: {value: true}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-tint",
+        label: function() {
+            return this.name || "Color Detect";
+        },
+        paletteLabel: "Color Detect"
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-color-detect">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Color Detection">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-expectedColor"><i class="fa fa-tint"></i> Expected Color</label>
+        <select id="node-input-expectedColor">
+            <option value="">Any (just detect)</option>
+            <option value="red">Red</option>
+            <option value="orange">Orange</option>
+            <option value="yellow">Yellow</option>
+            <option value="green">Green</option>
+            <option value="cyan">Cyan</option>
+            <option value="blue">Blue</option>
+            <option value="purple">Purple</option>
+            <option value="white">White</option>
+            <option value="black">Black</option>
+            <option value="gray">Gray</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-minPercentage"><i class="fa fa-percent"></i> Min Percentage</label>
+        <input type="number" id="node-input-minPercentage" placeholder="50" min="0" max="100">
+        <span style="margin-left: 10px;">%</span>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-method"><i class="fa fa-cogs"></i> Method</label>
+        <select id="node-input-method">
+            <option value="histogram">Histogram (Fast)</option>
+            <option value="kmeans">K-means (Accurate)</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-useContourMask"><i class="fa fa-crop"></i> Use Contour Mask</label>
+        <input type="checkbox" id="node-input-useContourMask" style="width: auto; margin-left: 10px;">
+        <span style="margin-left: 5px; color: #666; font-size: 12px;">Analyze only pixels inside contour (more accurate)</span>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-color-detect">
+    <p>Detects dominant color in an image or ROI using automatic color recognition.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>Image identifier from camera capture</dd>
+        <dt>roi <span class="property-type">object</span> <i>(optional)</i></dt>
+        <dd>Region of interest: {x, y, width, height}. If not provided, analyzes full image.</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>objects <span class="property-type">array</span></dt>
+        <dd>Array of detected color regions (DetectedObject format)</dd>
+        <dt>found <span class="property-type">number</span></dt>
+        <dd>1 if color matches, 0 if mismatch (when expected color is set)</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64-encoded thumbnail with color overlay</dd>
+    </dl>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Expected Color</dt>
+        <dd>Select a color to match against, or leave as "Any" to just detect the dominant color</dd>
+        <dt>Min Percentage</dt>
+        <dd>Minimum percentage of pixels that must match the expected color (default: 50%)</dd>
+        <dt>Method</dt>
+        <dd>
+            <ul>
+                <li><b>Histogram:</b> Fast histogram-based detection</li>
+                <li><b>K-means:</b> More accurate clustering method (slower)</li>
+            </ul>
+        </dd>
+        <dt>Use Contour Mask</dt>
+        <dd>
+            When enabled and a contour is available (from Edge Detection), analyzes only pixels
+            inside the contour shape, excluding background pixels within the bounding box.
+            This provides more accurate color detection by focusing on the actual object shape
+            rather than the rectangular region.
+            <ul>
+                <li><b>Enabled (default):</b> Accurate - analyzes only contour interior</li>
+                <li><b>Disabled:</b> Faster - analyzes full bounding box rectangle</li>
+            </ul>
+        </dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node automatically detects the dominant color in an image or ROI using predefined
+       color definitions (HSV color space).</p>
+
+    <p>Available colors: red, orange, yellow, green, cyan, blue, purple, white, black, gray</p>
+
+    <h4>Mode 1: Detection Only (No Expected Color)</h4>
+    <p>When Expected Color is set to "Any", the node simply reports what color was found.</p>
+    <ul>
+        <li>Output: <code>found = 1</code> (always, if any color detected)</li>
+        <li>Status: Shows dominant color and confidence</li>
+    </ul>
+
+    <h4>Mode 2: Color Matching (Expected Color Set)</h4>
+    <p>When Expected Color is set, the node checks if the dominant color matches.</p>
+    <ul>
+        <li>Output: <code>found = 1</code> if match, <code>found = 0</code> if mismatch</li>
+        <li>Status: Green checkmark if match, red X if mismatch</li>
+    </ul>
+
+    <h3>Example Flow</h3>
+    <pre>
+[Camera] → [Edge Detect] → [ROI Loop] → [Color Detect]
+                                              ↓
+                                     Expected: red
+                                     Min %: 60%
+                                              ↓
+                                     Found: red (85%)
+                                     Result: MATCH
+    </pre>
+
+    <h3>Output Object Properties</h3>
+    <p>Each detected color object includes:</p>
+    <ul>
+        <li><b>dominant_color:</b> The detected color name</li>
+        <li><b>color_percentages:</b> Breakdown of all colors found</li>
+        <li><b>match:</b> Whether it matches expected color</li>
+        <li><b>confidence:</b> Confidence score (0.0-1.0)</li>
+    </ul>
+</script>

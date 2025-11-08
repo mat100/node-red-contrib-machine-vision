@@ -1,0 +1,188 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-live-preview', {
+        category: 'machine-vision',
+        color: '#a6bbcf',
+        defaults: {
+            name: { value: "" },
+            apiConfig: { value: "", type: "mv-config", required: true },
+            cameraId: { value: "test" },
+            autoStart: { value: false },
+            showControls: { value: true }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-video-camera",
+        label: function() {
+            return this.name || "Live Preview";
+        },
+        paletteLabel: "Live Preview",
+        oneditprepare: function() {
+            // Load camera list when dialog opens
+            loadAvailableCameras();
+
+            // Add refresh button handler
+            $("#node-input-refresh-cameras").click(function() {
+                loadAvailableCameras();
+            });
+
+            function loadAvailableCameras() {
+                var configId = $("#node-input-apiConfig").val();
+                var configNode = RED.nodes.node(configId);
+                var apiUrl = configNode ? configNode.apiUrl : 'http://localhost:8000';
+                var currentCamera = $("#node-input-cameraId").val();
+                var select = $("#node-input-cameraId");
+
+                console.log("Loading cameras from:", apiUrl);
+
+                // Try with fetch API first
+                fetch(apiUrl + "/api/camera/list", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(function(response) {
+                    if (!response.ok) throw new Error("Network response was not ok");
+                    return response.json();
+                })
+                .then(function(cameras) {
+                    console.log("Cameras loaded:", cameras);
+                    select.empty();
+
+                    if (cameras && cameras.length > 0) {
+                        cameras.forEach(function(camera) {
+                            var label = camera.name + " (" + camera.type + ")";
+                            if (camera.connected) {
+                                label += " ✓";
+                            }
+                            var option = $('<option></option>')
+                                .val(camera.id)
+                                .text(label);
+
+                            if (camera.id === currentCamera) {
+                                option.prop('selected', true);
+                            }
+
+                            select.append(option);
+                        });
+                    } else {
+                        // Add default cameras if none returned
+                        select.html(
+                            '<option value="test">Test Image Generator</option>' +
+                            '<option value="usb_0">USB Camera 0</option>' +
+                            '<option value="usb_1">USB Camera 1</option>'
+                        );
+                        if (currentCamera) {
+                            select.val(currentCamera);
+                        }
+                    }
+                })
+                .catch(function(error) {
+                    console.warn("Failed to load cameras:", error);
+                    // Add default cameras on error
+                    select.html(
+                        '<option value="test">Test Image Generator</option>' +
+                        '<option value="usb_0">USB Camera 0</option>' +
+                        '<option value="usb_1">USB Camera 1</option>'
+                    );
+                    if (currentCamera) {
+                        select.val(currentCamera);
+                    }
+                });
+            }
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-live-preview">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Live Preview">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-cameraId"><i class="fa fa-camera"></i> Camera</label>
+        <select id="node-input-cameraId" style="width:60%">
+            <option value="test">Test Image</option>
+        </select>
+        <button type="button" id="node-input-refresh-cameras" class="red-ui-button" style="margin-left:5px">
+            <i class="fa fa-refresh"></i> Refresh
+        </button>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-autoStart"><i class="fa fa-play"></i> Auto Start</label>
+        <input type="checkbox" id="node-input-autoStart" style="width:auto">
+        <span style="margin-left:10px">Start streaming when flow deploys</span>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-showControls"><i class="fa fa-sliders"></i> Show Controls</label>
+        <input type="checkbox" id="node-input-showControls" style="width:auto">
+        <span style="margin-left:10px">Display control buttons in dashboard</span>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-live-preview">
+    <p>Provides MJPEG stream URL for live camera preview in Node-RED Dashboard.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload
+            <span class="property-type">object</span>
+        </dt>
+        <dd>Control commands for the preview stream</dd>
+        <dt class="optional">payload.command
+            <span class="property-type">string</span>
+        </dt>
+        <dd>"start" or "stop" to control streaming</dd>
+        <dt class="optional">payload.camera_id
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Camera ID to switch to different camera</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>stream_url
+            <span class="property-type">string</span>
+        </dt>
+        <dd>MJPEG stream URL for the camera</dd>
+        <dt>camera_id
+            <span class="property-type">string</span>
+        </dt>
+        <dd>ID of the streaming camera</dd>
+        <dt>payload.streaming
+            <span class="property-type">boolean</span>
+        </dt>
+        <dd>Whether stream is active</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>
+        This node provides an MJPEG stream URL that can be displayed in a Node-RED Dashboard
+        using an HTML template node with an img tag.
+    </p>
+    <p>
+        The stream is configured for 1280x720 resolution at 15 FPS. Only one camera can
+        stream at a time to conserve resources.
+    </p>
+
+    <h3>Usage Example</h3>
+    <p>Connect this node to a Dashboard Template node with the following HTML:</p>
+    <pre>&lt;img src="{{msg.stream_url}}" style="width:100%; max-width:1280px;"&gt;</pre>
+
+    <h3>Control Commands</h3>
+    <ul>
+        <li><b>Start:</b> Send <code>{command: "start"}</code> or <code>{start: true}</code></li>
+        <li><b>Stop:</b> Send <code>{command: "stop"}</code> or <code>{stop: true}</code></li>
+        <li><b>Switch Camera:</b> Send <code>{camera_id: "usb_0"}</code></li>
+        <li><b>Toggle:</b> Send any message without specific command</li>
+    </ul>
+</script>

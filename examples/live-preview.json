@@ -1,0 +1,226 @@
+[
+    {
+        "id": "flow_live_preview",
+        "type": "tab",
+        "label": "Live Preview Dashboard",
+        "disabled": false,
+        "info": "Dashboard for controlling and viewing live camera preview stream."
+    },
+    {
+        "id": "ui_tab_machine_vision",
+        "type": "ui_tab",
+        "name": "Machine Vision",
+        "icon": "fa-video-camera",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "ui_group_live_preview",
+        "type": "ui_group",
+        "name": "Live Preview",
+        "tab": "ui_tab_machine_vision",
+        "order": 1,
+        "disp": true,
+        "width": "24",
+        "collapse": false
+    },
+    {
+        "id": "ui_template_live_panel",
+        "type": "ui_template",
+        "z": "flow_live_preview",
+        "group": "ui_group_live_preview",
+        "name": "Live Preview Panel",
+        "order": 1,
+        "width": "24",
+        "height": "14",
+        "format": "<div style=\"background:#1e1e1e;border-radius:8px;color:#f1f1f1;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;\">\n  <div style=\"background:#2196F3;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;\">\n    <span style=\"font-size:16px;font-weight:500;\"><i class=\"fa fa-video-camera\"></i> Live Preview</span>\n    <span style=\"font-size:13px;letter-spacing:0.5px;\">\n      <span ng-if=\"status.streaming\" style=\"color:#4CAF50;\">\u25cf STREAMING</span>\n      <span ng-if=\"!status.streaming\" style=\"color:#f44336;\">\u25cf STOPPED</span>\n    </span>\n  </div>\n\n  <div style=\"position:relative;background:#000;height:360px;display:flex;align-items:center;justify-content:center;\">\n    <div ng-if=\"!msg.stream_url\" style=\"text-align:center;color:#808080;\">\n      <i class=\"fa fa-video-camera fa-3x\" style=\"opacity:0.3;\"></i>\n      <p style=\"margin-top:16px;font-size:15px;\">No stream active</p>\n      <p style=\"font-size:12px;color:#9e9e9e;\">Choose a camera and press Start</p>\n    </div>\n\n    <img ng-if=\"msg.stream_url\"\n         ng-src=\"{{msg.stream_url}}\"\n         style=\"max-width:100%;max-height:100%;object-fit:contain;\" />\n\n    <div ng-if=\"msg.stream_url\"\n         style=\"position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.6);padding:6px 12px;border-radius:4px;font-size:11px;color:#f5f5f5;\">\n      {{selectedCameraDisplay}} \u2022 1280\u00d7720 @ 15fps\n    </div>\n  </div>\n\n  <div style=\"background:#2c2c2c;padding:12px;display:flex;flex-direction:column;gap:10px;\">\n    <div style=\"display:flex;flex-wrap:wrap;gap:10px;align-items:center;\">\n      <button ng-click=\"startPreview()\"\n              ng-disabled=\"status.streaming\"\n              style=\"background:#4CAF50;color:#fff;border:none;padding:8px 18px;border-radius:4px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;\">\n        <i class=\"fa fa-play\"></i>\n        <span>Start</span>\n      </button>\n\n      <button ng-click=\"stopPreview()\"\n              ng-disabled=\"!status.streaming\"\n              style=\"background:#f44336;color:#fff;border:none;padding:8px 18px;border-radius:4px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;\">\n        <i class=\"fa fa-stop\"></i>\n        <span>Stop</span>\n      </button>\n\n      <div style=\"width:1px;height:24px;background:#555;margin:0 4px;\"></div>\n\n      <label style=\"font-size:13px;color:#bdbdbd;\">Camera:</label>\n      <select ng-model=\"selectedCamera\"\n              ng-options=\"cam.id as cam.displayName for cam in cameraOptions\"\n              ng-change=\"onCameraChange()\"\n              style=\"min-width:200px;padding:6px 10px;border-radius:4px;border:1px solid #555;background:#333;color:#fff;font-size:13px;\">\n        <option value=\"\" disabled ng-if=\"cameraOptions.length === 0\">Loading cameras...</option>\n      </select>\n\n      <button ng-click=\"refreshCameras()\"\n              style=\"margin-left:4px;background:#555;color:#fff;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;\">\n        <i class=\"fa fa-refresh\"></i>\n        <span>Refresh</span>\n      </button>\n\n      <span ng-if=\"loadingCameras\" style=\"font-size:12px;color:#9e9e9e;margin-left:8px;\">Updating\u2026</span>\n    </div>\n\n    <div style=\"display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:#9e9e9e;\">\n      <span>Status: {{status.streaming ? 'Streaming' : 'Ready'}}</span>\n      <span>Selected: {{selectedCameraDisplay}}</span>\n      <span>Backend: {{backendUrl}}</span>\n      <span>Format: MJPEG 1280\u00d7720 @ 15fps</span>\n    </div>\n  </div>\n</div>\n\n<script>\n(function(scope) {\n  scope.backendUrl = scope.backendUrl || 'http://localhost:8000';\n  scope.cameraOptions = scope.cameraOptions || [];\n  scope.selectedCamera = scope.selectedCamera || 'test';\n  scope.selectedCameraDisplay = scope.selectedCameraDisplay || 'Test Image Generator';\n  scope.status = scope.status || { streaming: false };\n  scope.loadingCameras = false;\n  scope.pendingCameraId = scope.selectedCamera;\n\n  function fallbackDisplay(cameraId) {\n    var labels = {\n      'test': 'Test Image Generator',\n      'usb_0': 'USB Camera 0',\n      'usb_1': 'USB Camera 1',\n      'usb_2': 'USB Camera 2'\n    };\n    return labels[cameraId] || cameraId || 'Camera';\n  }\n\n  function getDisplayName(cameraId) {\n    if (!cameraId) {\n      return fallbackDisplay(cameraId);\n    }\n    for (var i = 0; i < scope.cameraOptions.length; i++) {\n      if (scope.cameraOptions[i].id === cameraId) {\n        return scope.cameraOptions[i].displayName;\n      }\n    }\n    return fallbackDisplay(cameraId);\n  }\n\n  function ensureBackendUrl(msg) {\n    if (!msg) {\n      return;\n    }\n    if (msg.api_url) {\n      scope.backendUrl = msg.api_url;\n      return;\n    }\n    if (msg.payload && msg.payload.api_url) {\n      scope.backendUrl = msg.payload.api_url;\n    }\n  }\n\n  function setSelected(cameraId) {\n    if (!cameraId) {\n      return;\n    }\n    scope.pendingCameraId = cameraId;\n    scope.selectedCamera = cameraId;\n    scope.selectedCameraDisplay = getDisplayName(cameraId);\n  }\n\n  function buildOptions(list) {\n    var options = [];\n    for (var i = 0; i < list.length; i++) {\n      var item = list[i];\n      var name = item.name || item.id;\n      options.push({\n        id: item.id,\n        name: name,\n        connected: !!item.connected,\n        displayName: name + (item.connected ? ' \u2713' : ' \u2717')\n      });\n    }\n    return options;\n  }\n\n  function defaultOptions() {\n    return buildOptions([\n      { id: 'test', name: 'Test Image Generator', connected: true },\n      { id: 'usb_0', name: 'USB Camera 0', connected: false },\n      { id: 'usb_1', name: 'USB Camera 1', connected: false }\n    ]);\n  }\n\n  if (!scope.cameraOptions || scope.cameraOptions.length === 0) {\n    scope.cameraOptions = defaultOptions();\n    setSelected(scope.selectedCamera || 'test');\n  } else {\n    setSelected(scope.selectedCamera || scope.cameraOptions[0].id);\n  }\n\n  function fetchCameras() {\n    var baseUrl = scope.backendUrl || 'http://localhost:8000';\n    var url = baseUrl.replace(/\\/+$/, '') + '/api/camera/list';\n    var xhr = new XMLHttpRequest();\n    scope.loadingCameras = true;\n\n    xhr.open('POST', url, true);\n    xhr.setRequestHeader('Content-Type', 'application/json');\n\n    xhr.onload = function() {\n      var options = null;\n      if (xhr.status === 200 && xhr.responseText) {\n        try {\n          var response = JSON.parse(xhr.responseText);\n          if (Array.isArray(response) && response.length > 0) {\n            options = buildOptions(response);\n          }\n        } catch (err) {\n          console.error('[Live Preview] Failed to parse camera list:', err);\n        }\n      }\n\n      if (!options || options.length === 0) {\n        options = defaultOptions();\n      }\n\n      scope.$applyAsync(function() {\n        scope.cameraOptions = options;\n        scope.loadingCameras = false;\n\n        var found = false;\n        for (var i = 0; i < options.length; i++) {\n          if (options[i].id === scope.pendingCameraId) {\n            found = true;\n            break;\n          }\n        }\n        if (!found && options.length > 0) {\n          setSelected(options[0].id);\n        } else {\n          setSelected(scope.pendingCameraId);\n        }\n      });\n    };\n\n    xhr.onerror = function() {\n      console.warn('[Live Preview] Camera list request failed, using defaults');\n      scope.$applyAsync(function() {\n        scope.cameraOptions = defaultOptions();\n        scope.loadingCameras = false;\n        setSelected(scope.pendingCameraId || 'test');\n      });\n    };\n\n    try {\n      xhr.send('{}');\n    } catch (sendErr) {\n      console.error('[Live Preview] Failed to send camera list request:', sendErr);\n      scope.loadingCameras = false;\n    }\n  }\n\n  scope.startPreview = function() {\n    setSelected(scope.selectedCamera || 'test');\n    scope.send({\n      payload: {\n        command: 'start',\n        camera_id: scope.selectedCamera\n      }\n    });\n  };\n\n  scope.stopPreview = function() {\n    scope.send({\n      payload: {\n        command: 'stop'\n      }\n    });\n  };\n\n  scope.onCameraChange = function() {\n    setSelected(scope.selectedCamera);\n    if (scope.status.streaming) {\n      scope.send({\n        payload: {\n          camera_id: scope.selectedCamera\n        }\n      });\n    }\n  };\n\n  scope.refreshCameras = function() {\n    fetchCameras();\n  };\n\n  scope.$watch('msg', function(msg) {\n    if (!msg) {\n      return;\n    }\n    ensureBackendUrl(msg);\n\n    if (msg.payload) {\n      if (typeof msg.payload.streaming === 'boolean') {\n        scope.status.streaming = msg.payload.streaming;\n      }\n      if (msg.payload.camera_id) {\n        setSelected(msg.payload.camera_id);\n      }\n    }\n\n    if (msg.camera_id) {\n      setSelected(msg.camera_id);\n    }\n  });\n\n  scope.$watch('msg.api_url', function(newVal) {\n    if (newVal) {\n      scope.backendUrl = newVal;\n    }\n  });\n\n  scope.$watch('msg.payload.api_url', function(newVal) {\n    if (newVal) {\n      scope.backendUrl = newVal;\n    }\n  });\n\n  // Load cameras shortly after widget initialises to allow initial message to arrive\n  setTimeout(fetchCameras, 400);\n\n  console.log('[Live Preview] Dashboard widget initialised');\n})(scope);\n</script>",
+        "storeOutMessages": true,
+        "fwdInMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 710,
+        "y": 160,
+        "wires": [
+            [
+                "mv_live_preview_handler"
+            ]
+        ]
+    },
+    {
+        "id": "mv_live_preview_handler",
+        "type": "mv-live-preview",
+        "z": "flow_live_preview",
+        "name": "Live Preview Handler",
+        "apiUrl": "http://localhost:8000",
+        "cameraId": "test",
+        "autoStart": false,
+        "showControls": true,
+        "x": 480,
+        "y": 160,
+        "wires": [
+            [
+                "ui_template_live_panel"
+            ]
+        ]
+    },
+    {
+        "id": "inject_start_preview",
+        "type": "inject",
+        "z": "flow_live_preview",
+        "name": "Start Preview",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"command\":\"start\",\"camera_id\":\"test\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 60,
+        "wires": [
+            [
+                "mv_live_preview_handler"
+            ]
+        ]
+    },
+    {
+        "id": "inject_stop_preview",
+        "type": "inject",
+        "z": "flow_live_preview",
+        "name": "Stop Preview",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"command\":\"stop\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "mv_live_preview_handler"
+            ]
+        ]
+    },
+    {
+        "id": "inject_switch_usb0",
+        "type": "inject",
+        "z": "flow_live_preview",
+        "name": "Switch to USB 0",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"camera_id\":\"usb_0\"}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 260,
+        "wires": [
+            [
+                "mv_live_preview_handler"
+            ]
+        ]
+    },
+    {
+        "id": "inject_switch_test",
+        "type": "inject",
+        "z": "flow_live_preview",
+        "name": "Switch to Test",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"camera_id\":\"test\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 220,
+        "wires": [
+            [
+                "mv_live_preview_handler"
+            ]
+        ]
+    },
+    {
+        "id": "inject_switch_usb1",
+        "type": "inject",
+        "z": "flow_live_preview",
+        "name": "Switch to USB 1",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"camera_id\":\"usb_1\"}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 300,
+        "wires": [
+            [
+                "mv_live_preview_handler"
+            ]
+        ]
+    },
+    {
+        "id": "inject_toggle_preview",
+        "type": "inject",
+        "z": "flow_live_preview",
+        "name": "Toggle Preview",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 140,
+        "y": 160,
+        "wires": [
+            [
+                "mv_live_preview_handler"
+            ]
+        ]
+    },
+    {
+        "id": "0ff801521dc43c72",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.5",
+            "node-red-contrib-machine-vision-flow": "1.0.0"
+        }
+    }
+]

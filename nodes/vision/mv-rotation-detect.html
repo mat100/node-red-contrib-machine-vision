@@ -1,0 +1,119 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-rotation-detect', {
+        category: 'machine vision',
+        color: '#9C27B0',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            method: {value: "min_area_rect"},
+            angleRange: {value: "0_360"}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-rotate-right",
+        label: function() {
+            return this.name || "Rotation Detect";
+        },
+        paletteLabel: "rotation detect"
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-rotation-detect">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Rotation Detection">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-method"><i class="fa fa-cog"></i> Method</label>
+        <select id="node-input-method">
+            <option value="min_area_rect">Minimum Area Rectangle</option>
+            <option value="ellipse_fit">Ellipse Fitting</option>
+            <option value="pca">PCA (Principal Component)</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-angleRange"><i class="fa fa-circle-o-notch"></i> Angle Range</label>
+        <select id="node-input-angleRange">
+            <option value="0_360">0° to 360°</option>
+            <option value="-180_180">-180° to +180°</option>
+            <option value="0_180">0° to 180° (symmetric)</option>
+        </select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-rotation-detect">
+    <p>Calculates object rotation angle from contours. Supports absolute rotation and relative rotation vs reference object.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload.contour <span class="property-type">array</span></dt>
+        <dd>Contour points from edge detection [[x1,y1], [x2,y2], ...]</dd>
+
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>Image ID for visualization</dd>
+
+        <dt>reference_object <span class="property-type">object (optional)</span></dt>
+        <dd>Reference object from ArUco detection. If present, calculates relative rotation.</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload.rotation <span class="property-type">number</span></dt>
+        <dd>Absolute rotation angle in configured range</dd>
+
+        <dt>payload.rotation_relative <span class="property-type">number (optional)</span></dt>
+        <dd>Rotation relative to reference_object (only if reference present)</dd>
+
+        <dt>payload.rotation_confidence <span class="property-type">number</span></dt>
+        <dd>Confidence score 0.0-1.0</dd>
+
+        <dt>payload.properties <span class="property-type">object</span></dt>
+        <dd>
+            <ul>
+                <li><code>rotation_method</code>: Method used</li>
+                <li><code>absolute_angle</code>: Absolute angle value</li>
+                <li><code>reference_angle</code>: Reference rotation (if used)</li>
+            </ul>
+        </dd>
+    </dl>
+
+    <h3>Methods</h3>
+    <ul>
+        <li><strong>Minimum Area Rectangle</strong>: Fast, best for rectangular/elongated objects</li>
+        <li><strong>Ellipse Fitting</strong>: Good for circular/elliptical objects (needs ≥5 contour points)</li>
+        <li><strong>PCA</strong>: Most robust, finds dominant orientation axis</li>
+    </ul>
+
+    <h3>Angle Ranges</h3>
+    <ul>
+        <li><strong>0° to 360°</strong>: Full circle, always positive</li>
+        <li><strong>-180° to +180°</strong>: Signed angle, easier for deviation calculations</li>
+        <li><strong>0° to 180°</strong>: For symmetric objects (no 0°/180° distinction)</li>
+    </ul>
+
+    <h3>Reference Convention</h3>
+    <p><strong>0° = Horizontal Right (→)</strong>, rotating counter-clockwise:</p>
+    <ul>
+        <li>90° = Vertical Up (↑)</li>
+        <li>180° = Horizontal Left (←)</li>
+        <li>270° = Vertical Down (↓)</li>
+    </ul>
+
+    <h3>Pick & Place Example</h3>
+    <pre>
+[Camera] → [ArUco Detect] → [Edge Detect] → [Rotation Detect] → [Robot]
+              ↓ sets ref       ↓ finds part    ↓ calculates      ↓
+           rotation=45°      sends contour    rotation=52°    pick at
+                                              relative=+7°     X,Y,θ
+    </pre>
+
+    <h3>Details</h3>
+    <p>Enriches existing message with rotation data. Preserves all original payload fields and adds rotation information. If <code>msg.reference_object</code> exists (from ArUco node), automatically calculates relative rotation difference.</p>
+</script>

@@ -1,0 +1,50 @@
+# Node-RED Package - Files to exclude from npm package
+
+# Flows and user data
+flows/
+examples/
+*.json
+!package.json
+!package-lock.json
+
+# Development files
+node_modules/
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Development configs
+.env
+.env.local
+nodemon.json
+
+# Git
+.git/
+.gitignore
+
+# Documentation source (keep README.md)
+docs/
+
+# Build artifacts
+dist/
+build/
+
+# Editor files
+*.swp
+*.swo
+*~

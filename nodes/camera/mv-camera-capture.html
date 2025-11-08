@@ -1,0 +1,248 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-camera-capture', {
+        category: 'machine vision',
+        color: '#a6bbcf',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            sourceType: {value: "usb"},
+            cameraId: {value: "test"},
+            ipCameraUrl: {value: ""},
+            autoConnect: {value: false},
+            resolution: {
+                value: {
+                    width: 1920,
+                    height: 1080
+                }
+            }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "camera.png",
+        label: function() {
+            return this.name || "Camera Capture";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "camera capture",
+        inputLabels: "trigger",
+        outputLabels: ["image captured"],
+        oneditprepare: function() {
+            var node = this;
+
+            // Initialize resolution fields
+            $("#node-input-resolution-width").val(this.resolution.width || 1920);
+            $("#node-input-resolution-height").val(this.resolution.height || 1080);
+
+            // Toggle between USB and IP camera inputs
+            function toggleCameraSource() {
+                var sourceType = $("#node-input-sourceType").val();
+                if (sourceType === "ip") {
+                    $("#usb-camera-row").hide();
+                    $("#ip-camera-row").show();
+                } else {
+                    $("#usb-camera-row").show();
+                    $("#ip-camera-row").hide();
+                }
+            }
+
+            // Set initial state
+            toggleCameraSource();
+
+            // Handle source type changes
+            $("#node-input-sourceType").on("change", function() {
+                toggleCameraSource();
+            });
+
+            // Load available cameras from API
+            function getApiUrl() {
+                var configId = $("#node-input-apiConfig").val();
+                var configNode = RED.nodes.node(configId);
+                return configNode ? configNode.apiUrl : 'http://localhost:8000';
+            }
+
+            // Add refresh button next to camera select
+            var refreshBtn = $('<button type="button" class="red-ui-button" style="margin-left: 10px;"><i class="fa fa-refresh"></i></button>');
+            $("#node-input-cameraId").after(refreshBtn);
+
+            function loadCameras() {
+                refreshBtn.find('i').addClass('fa-spin');
+                var apiUrl = getApiUrl();
+
+                $.ajax({
+                    url: apiUrl + "/api/camera/list",
+                    type: "POST",
+                    contentType: "application/json",
+                    timeout: 5000,
+                    success: function(cameras) {
+                        refreshBtn.find('i').removeClass('fa-spin');
+
+                        // Clear existing options
+                        $("#node-input-cameraId").empty();
+
+                        // Always add test option
+                        $("#node-input-cameraId").append('<option value="test">Test Image (no camera)</option>');
+
+                        // Add separator if there are real cameras
+                        if (cameras && cameras.length > 0) {
+                            $("#node-input-cameraId").append('<option disabled>──────────</option>');
+                        }
+
+                        // Add detected cameras
+                        if (cameras && cameras.length > 0) {
+                            cameras.forEach(function(camera) {
+                                var label = camera.name + " (" + camera.type + ")";
+                                if (camera.connected) {
+                                    label += " ✓";
+                                }
+                                $("#node-input-cameraId").append(
+                                    $('<option></option>').val(camera.id).text(label)
+                                );
+                            });
+                        } else {
+                            $("#node-input-cameraId").append('<option disabled>No cameras detected</option>');
+                        }
+
+                        // Set current value if it exists
+                        if (node.cameraId) {
+                            $("#node-input-cameraId").val(node.cameraId);
+                        }
+                    },
+                    error: function(err) {
+                        refreshBtn.find('i').removeClass('fa-spin');
+                        console.error("Failed to load cameras:", err);
+
+                        // Fallback to manual input
+                        $("#node-input-cameraId").replaceWith('<input type="text" id="node-input-cameraId" placeholder="test">');
+                        $("#node-input-cameraId").val(node.cameraId || "test");
+
+                        // Add tooltip about error
+                        $("#node-input-cameraId").after('<div class="form-tips" style="color: #d00;">Failed to load cameras. Enter manually.</div>');
+                    }
+                });
+            }
+
+            // Load cameras on init
+            loadCameras();
+
+            // Refresh button click
+            refreshBtn.click(function() {
+                loadCameras();
+            });
+
+            // Update cameras when API config changes
+            $("#node-input-apiConfig").on('change', function() {
+                loadCameras();
+            });
+        },
+        oneditsave: function() {
+            // Save resolution
+            this.resolution = {
+                width: parseInt($("#node-input-resolution-width").val()) || 1920,
+                height: parseInt($("#node-input-resolution-height").val()) || 1080
+            };
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-camera-capture">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-sourceType"><i class="fa fa-plug"></i> Source Type</label>
+        <select id="node-input-sourceType" style="width: 70%;">
+            <option value="usb">USB Camera</option>
+            <option value="ip">IP Camera (RTSP/HTTP)</option>
+        </select>
+    </div>
+
+    <div class="form-row" id="usb-camera-row">
+        <label for="node-input-cameraId"><i class="fa fa-camera"></i> Camera</label>
+        <select id="node-input-cameraId" style="width: 60%;">
+            <option value="test">Test Image (no camera)</option>
+        </select>
+        <div class="form-tips">
+            Click refresh button to reload available cameras
+        </div>
+    </div>
+
+    <div class="form-row" id="ip-camera-row" style="display: none;">
+        <label for="node-input-ipCameraUrl"><i class="fa fa-video-camera"></i> Camera URL</label>
+        <input type="text" id="node-input-ipCameraUrl" placeholder="rtsp://192.168.1.100:554/stream1" style="width: 70%;">
+        <div class="form-tips">
+            Examples:<br/>
+            • RTSP: <code>rtsp://192.168.1.100:554/stream1</code><br/>
+            • HTTP MJPEG: <code>http://192.168.1.50/video.mjpg</code><br/>
+            • With auth: <code>rtsp://admin:password@192.168.1.100:554/h264</code>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-row">
+        <label><i class="fa fa-arrows"></i> Resolution</label>
+        <label for="node-input-resolution-width" style="width: 70px; margin-left: 10px;">Width:</label>
+        <input type="number" id="node-input-resolution-width" style="width: 80px" min="320" max="4096">
+        <label for="node-input-resolution-height" style="width: 70px; margin-left: 10px;">Height:</label>
+        <input type="number" id="node-input-resolution-height" style="width: 80px" min="240" max="2160">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-autoConnect"><i class="fa fa-plug"></i> Auto Connect</label>
+        <input type="checkbox" id="node-input-autoConnect" style="width: auto;">
+        <label for="node-input-autoConnect" style="width: auto; margin-left: 10px;">
+            Connect to camera on startup
+        </label>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-camera-capture">
+    <p>Captures an image from a camera when triggered by an input message.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">any</span></dt>
+        <dd>Any message triggers image capture</dd>
+        <dt class="optional">cameraId <span class="property-type">string</span></dt>
+        <dd>Override the configured camera ID</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>Contains image_id, timestamp, thumbnail_base64, and metadata</dd>
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>Unique identifier for the captured image</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64 encoded thumbnail for preview</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node captures an image from a configured camera when triggered by any input message.</p>
+    <p>The image is stored on the Python backend and referenced by image_id.</p>
+    <p>The thumbnail can be displayed using the image-output node.</p>
+
+    <h3>Camera Sources</h3>
+    <p><b>USB Cameras:</b></p>
+    <ul>
+        <li><b>test</b> - Generates a test image (no camera required)</li>
+        <li><b>usb_0, usb_1, ...</b> - USB cameras detected by the system</li>
+    </ul>
+
+    <p><b>IP Cameras:</b></p>
+    <ul>
+        <li><b>RTSP Stream:</b> <code>rtsp://192.168.1.100:554/stream1</code></li>
+        <li><b>HTTP MJPEG:</b> <code>http://192.168.1.50/video.mjpg</code></li>
+        <li><b>With Authentication:</b> <code>rtsp://admin:password@192.168.1.100:554/h264</code></li>
+        <li><b>Custom Port:</b> <code>rtsp://192.168.1.100:8554/live.sdp</code></li>
+    </ul>
+
+    <p>Note: IP camera URLs are automatically formatted as <code>ip_{url}</code> by the node.</p>
+</script>
