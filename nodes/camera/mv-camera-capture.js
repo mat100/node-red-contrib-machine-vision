@@ -13,7 +13,10 @@ module.exports = function(RED) {
         node.sourceType = config.sourceType || 'usb';
 
         // Determine camera ID based on source type
-        if (node.sourceType === 'ip' && config.ipCameraUrl) {
+        if (node.sourceType === 'test') {
+            // Test mode - always use 'test' camera
+            node.cameraId = 'test';
+        } else if (node.sourceType === 'ip' && config.ipCameraUrl) {
             // Format IP camera URL as ip_{url}
             node.cameraId = `ip_${config.ipCameraUrl}`;
         } else {
@@ -26,8 +29,8 @@ module.exports = function(RED) {
         // Status
         visionUtils.setNodeStatus(node, 'ready');
 
-        // Connect to camera on startup if autoConnect
-        if (node.autoConnect && node.cameraId) {
+        // Connect to camera on startup if autoConnect (skip for test mode)
+        if (node.autoConnect && node.cameraId && node.sourceType !== 'test') {
             // Wait for backend to be ready, then connect
             connectCameraWithRetry();
         }

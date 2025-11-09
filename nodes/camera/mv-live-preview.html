@@ -1,7 +1,7 @@
 <script type="text/javascript">
     RED.nodes.registerType('mv-live-preview', {
-        category: 'machine-vision',
-        color: '#a6bbcf',
+        category: 'Machine Vision',
+        color: '#5B9BD5',
         defaults: {
             name: { value: "" },
             apiConfig: { value: "", type: "mv-config", required: true },
@@ -15,7 +15,7 @@
         label: function() {
             return this.name || "Live Preview";
         },
-        paletteLabel: "Live Preview",
+        paletteLabel: "live preview",
         oneditprepare: function() {
             // Load camera list when dialog opens
             loadAvailableCameras();
