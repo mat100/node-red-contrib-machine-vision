@@ -3,7 +3,8 @@ module.exports = function(RED) {
         setNodeStatus,
         callVisionAPI,
         getImageId,
-        getTimestamp
+        getTimestamp,
+        CONSTANTS
     } = require('../lib/vision-utils');
 
     function MVRotationDetectNode(config) {
@@ -14,8 +15,8 @@ module.exports = function(RED) {
         node.apiConfig = RED.nodes.getNode(config.apiConfig);
 
         // Configuration
-        node.method = config.method || 'min_area_rect';
-        node.angleRange = config.angleRange || '0_360';
+        node.method = config.method || CONSTANTS.ROTATION_DETECT.DEFAULT_METHOD;
+        node.angleRange = config.angleRange || CONSTANTS.ROTATION_DETECT.DEFAULT_ANGLE_RANGE;
 
         setNodeStatus(node, 'ready');
 

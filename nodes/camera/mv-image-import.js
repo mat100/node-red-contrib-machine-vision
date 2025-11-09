@@ -1,5 +1,6 @@
 module.exports = function(RED) {
     const axios = require('axios');
+    const visionUtils = require('../lib/vision-utils');
 
     function MVImageImportNode(config) {
         RED.nodes.createNode(this, config);
@@ -10,7 +11,7 @@ module.exports = function(RED) {
         node.apiConfig = RED.nodes.getNode(config.apiConfig);
 
         // Status
-        node.status({fill: "grey", shape: "ring", text: "ready"});
+        visionUtils.setNodeStatus(node, 'ready');
 
         // Import image on input
         node.on('input', async function(msg, send, done) {
@@ -18,7 +19,7 @@ module.exports = function(RED) {
             send = send || function() { node.send.apply(node, arguments) };
             done = done || function(err) { if(err) node.error(err, msg) };
 
-            node.status({fill: "blue", shape: "dot", text: "importing..."});
+            visionUtils.setNodeStatus(node, 'processing', visionUtils.CONSTANTS.STATUS_TEXT.IMPORTING);
 
             try {
                 // Get file path from msg.filepath or msg.payload
@@ -28,70 +29,44 @@ module.exports = function(RED) {
                     throw new Error('No file path provided. Use msg.filepath or msg.payload');
                 }
 
-                // Get API configuration
-                if (!node.apiConfig) {
-                    throw new Error('Missing API configuration. Please configure mv-config node.');
-                }
-                const apiUrl = node.apiConfig.apiUrl || 'http://localhost:8000';
-                const headers = {'Content-Type': 'application/json'};
-                if (node.apiConfig.credentials) {
-                    if (node.apiConfig.credentials.apiKey) {
-                        headers['X-API-Key'] = node.apiConfig.credentials.apiKey;
-                    }
-                    if (node.apiConfig.credentials.apiToken) {
-                        headers['Authorization'] = `Bearer ${node.apiConfig.credentials.apiToken}`;
-                    }
-                }
+                // Import image via API using wrapper
+                const result = await visionUtils.callImageAPI({
+                    node: node,
+                    endpoint: '/api/image/import',
+                    requestData: { file_path: filePath },
+                    apiConfig: node.apiConfig,
+                    done: done
+                });
 
-                // Import image via API
-                const response = await axios.post(
-                    `${apiUrl}/api/image/import`,
-                    {
-                        file_path: filePath
-                    },
-                    {headers}
-                );
+                if (result.success) {
+                    const metadata = result.metadata;
+                    const imageId = result.image_id;
 
-                if (response.data.success) {
-                    const metadata = response.data.metadata;
-                    const imageId = response.data.image_id;
+                    // Build VisionObject using utility
+                    const visionObject = visionUtils.createCameraVisionObject(
+                        imageId,
+                        result.timestamp,
+                        metadata,
+                        result.thumbnail_base64,
+                        visionUtils.CONSTANTS.OBJECT_TYPES.IMAGE_IMPORT
+                    );
 
-                    // Build VisionObject in payload (same structure as camera capture)
-                    msg.payload = {
-                        object_id: `img_${imageId.substring(0, 8)}`,
-                        object_type: "file_import",
-                        image_id: imageId,
-                        timestamp: response.data.timestamp,
-                        bounding_box: {
-                            x: 0,
-                            y: 0,
-                            width: metadata.width,
-                            height: metadata.height
-                        },
-                        center: {
-                            x: metadata.width / 2,
-                            y: metadata.height / 2
-                        },
-                        confidence: 1.0,
-                        thumbnail: response.data.thumbnail_base64,
-                        properties: {
-                            source: metadata.source,
-                            file_path: metadata.file_path,
-                            file_size_bytes: metadata.file_size_bytes,
-                            resolution: [metadata.width, metadata.height]
-                        }
+                    // Add file-specific properties
+                    visionObject.properties = {
+                        source: metadata.source,
+                        file_path: metadata.file_path,
+                        file_size_bytes: metadata.file_size_bytes,
+                        resolution: [metadata.width, metadata.height]
                     };
+
+                    msg.payload = visionObject;
 
                     // Metadata in root
                     msg.success = true;
                     msg.processing_time_ms = 0;
                     msg.node_name = node.name || "Image Import";
 
-                    node.status({
-                        fill: "green",
-                        shape: "dot",
-                        text: `imported: ${imageId.substring(0, 8)}...`
-                    });
+                    visionUtils.setNodeStatus(node, 'success', `imported: ${imageId.substring(0, 8)}...`);
 
                     send(msg);
                     done();
@@ -100,10 +75,12 @@ module.exports = function(RED) {
                 }
 
             } catch (error) {
-                const errorMsg = error.response?.data?.detail || error.message;
-                node.error(`Import failed: ${errorMsg}`, msg);
-                node.status({fill: "red", shape: "dot", text: "import failed"});
-                done(error);
+                // Error already handled by callImageAPI
+                if (!error.response) {
+                    // Only handle non-API errors here
+                    visionUtils.setNodeStatus(node, 'error', 'import failed');
+                    done(error);
+                }
             }
         });
     }

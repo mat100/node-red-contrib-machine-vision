@@ -7,6 +7,12 @@
         "info": "Example flow demonstrating Machine Vision inspection with multiple detections"
     },
     {
+        "id": "mv_api_config",
+        "type": "mv-config",
+        "apiUrl": "http://localhost:8000",
+        "timeout": "30000"
+    },
+    {
         "id": "inject_trigger",
         "type": "inject",
         "z": "flow_mv_example",
@@ -35,7 +41,7 @@
         "z": "flow_mv_example",
         "name": "Camera Capture",
         "cameraId": "test",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config",
         "autoConnect": false,
         "resolution": {
             "width": 1920,
@@ -68,7 +74,7 @@
         "type": "mv-template-match",
         "z": "flow_mv_example",
         "name": "Find Screw 1",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config",
         "templateSource": "library",
         "templateId": "tmpl_screw_1",
         "threshold": 0.8,
@@ -93,7 +99,7 @@
         "type": "mv-template-match",
         "z": "flow_mv_example",
         "name": "Find Screw 2",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config",
         "templateSource": "library",
         "templateId": "tmpl_screw_2",
         "threshold": 0.8,
@@ -118,7 +124,7 @@
         "type": "mv-template-match",
         "z": "flow_mv_example",
         "name": "Find Hole",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config",
         "templateSource": "library",
         "templateId": "tmpl_hole",
         "threshold": 0.75,
@@ -201,7 +207,7 @@
         "type": "comment",
         "z": "flow_mv_example",
         "name": "⚠️ Setup Required",
-        "info": "Before running:\n1. Start Python backend: cd python-backend && python3 main.py\n2. Install image node: npm install node-red-contrib-image-output\n3. Create templates or use test templates\n4. Click 'Manual Trigger' to run inspection",
+        "info": "Before running:\n1. Configure mv-config node with backend URL (default: http://localhost:8000)\n2. Start Python backend: cd python-backend && python3 main.py\n3. Install image node: npm install node-red-contrib-image-output\n4. Create templates or use test templates\n5. Click 'Manual Trigger' to run inspection",
         "x": 130,
         "y": 100,
         "wires": []

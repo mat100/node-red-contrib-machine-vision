@@ -4,7 +4,8 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         callVisionAPI,
         getImageId,
-        getTimestamp
+        getTimestamp,
+        CONSTANTS
     } = require('../lib/vision-utils');
 
     function MVTemplateMatchNode(config) {
@@ -16,11 +17,11 @@ module.exports = function(RED) {
 
         // Configuration
         node.templateId = config.templateId;
-        node.templateSource = config.templateSource || 'library';
-        node.threshold = parseFloat(config.threshold) || 0.8;
-        node.method = config.method || 'TM_CCOEFF_NORMED';
-        node.multiScale = config.multiScale || false;
-        node.scaleRange = config.scaleRange || [0.8, 1.2];
+        node.templateSource = config.templateSource || CONSTANTS.TEMPLATE_MATCH.DEFAULT_SOURCE;
+        node.threshold = parseFloat(config.threshold) || CONSTANTS.TEMPLATE_MATCH.THRESHOLD;
+        node.method = config.method || CONSTANTS.TEMPLATE_MATCH.METHOD;
+        node.multiScale = config.multiScale || CONSTANTS.TEMPLATE_MATCH.MULTI_SCALE;
+        node.scaleRange = config.scaleRange || CONSTANTS.TEMPLATE_MATCH.DEFAULT_SCALE_RANGE;
 
         // Set initial status
         setNodeStatus(node, 'ready');

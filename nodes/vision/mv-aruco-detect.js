@@ -4,7 +4,8 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         callVisionAPI,
         getImageId,
-        getTimestamp
+        getTimestamp,
+        CONSTANTS
     } = require('../lib/vision-utils');
 
     function MVArucoDetectNode(config) {
@@ -15,7 +16,7 @@ module.exports = function(RED) {
         node.apiConfig = RED.nodes.getNode(config.apiConfig);
 
         // Configuration
-        node.dictionary = config.dictionary || 'DICT_4X4_50';
+        node.dictionary = config.dictionary || CONSTANTS.ARUCO_DETECT.DICTIONARY;
 
         setNodeStatus(node, 'ready');
 

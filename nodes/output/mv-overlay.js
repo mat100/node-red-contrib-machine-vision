@@ -1,9 +1,11 @@
 module.exports = function(RED) {
+    const visionUtils = require('../lib/vision-utils');
+
     function MVOverlayNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
 
-        node.status({fill: "grey", shape: "ring", text: "ready"});
+        visionUtils.setNodeStatus(node, 'ready');
 
         node.on('input', function(msg, send, done) {
             send = send || function() { node.send.apply(node, arguments) };

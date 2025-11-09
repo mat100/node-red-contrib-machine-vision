@@ -7,6 +7,12 @@
         "info": "Example flow demonstrating edge detection with different methods"
     },
     {
+        "id": "mv_api_config_edge",
+        "type": "mv-config",
+        "apiUrl": "http://localhost:8000",
+        "timeout": "30000"
+    },
+    {
         "id": "trigger_edge",
         "type": "inject",
         "z": "flow_edge_detection",
@@ -35,7 +41,7 @@
         "z": "flow_edge_detection",
         "name": "Camera Capture",
         "cameraId": "test",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config_edge",
         "autoConnect": false,
         "resolution": {
             "width": 1920,
@@ -68,7 +74,7 @@
         "type": "mv-edge-detect",
         "z": "flow_edge_detection",
         "name": "Canny Edge",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config_edge",
         "method": "canny",
         "cannyLow": 50,
         "cannyHigh": 150,
@@ -100,7 +106,7 @@
         "type": "mv-edge-detect",
         "z": "flow_edge_detection",
         "name": "Sobel Edge",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config_edge",
         "method": "sobel",
         "cannyLow": 50,
         "cannyHigh": 150,
@@ -132,7 +138,7 @@
         "type": "mv-edge-detect",
         "z": "flow_edge_detection",
         "name": "Laplacian Edge",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config_edge",
         "method": "laplacian",
         "cannyLow": 50,
         "cannyHigh": 150,
@@ -222,7 +228,7 @@
         "type": "comment",
         "z": "flow_edge_detection",
         "name": "Setup Instructions",
-        "info": "Before running:\n1. Start Python backend: cd python-backend && python3 main.py\n2. Install image node: npm install node-red-contrib-image-output\n3. Click 'Manual Trigger' to run edge detection\n\nYou can modify each edge detection node's parameters to experiment with different settings.",
+        "info": "Before running:\n1. Configure mv-config node with backend URL (default: http://localhost:8000)\n2. Start Python backend: cd python-backend && python3 main.py\n3. Install image node: npm install node-red-contrib-image-output\n4. Click 'Manual Trigger' to run edge detection\n\nYou can modify each edge detection node's parameters to experiment with different settings.",
         "x": 140,
         "y": 100,
         "wires": []

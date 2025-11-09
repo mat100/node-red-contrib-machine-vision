@@ -4,7 +4,8 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         callVisionAPI,
         getImageId,
-        getTimestamp
+        getTimestamp,
+        CONSTANTS
     } = require('../lib/vision-utils');
 
     function MVColorDetectNode(config) {
@@ -16,8 +17,8 @@ module.exports = function(RED) {
 
         // Configuration
         node.expectedColor = config.expectedColor || '';  // Empty = any color
-        node.minPercentage = parseFloat(config.minPercentage) || 50.0;
-        node.method = config.method || 'histogram';
+        node.minPercentage = parseFloat(config.minPercentage) || CONSTANTS.COLOR_DETECT.DEFAULT_MIN_PERCENTAGE;
+        node.method = config.method || CONSTANTS.COLOR_DETECT.DEFAULT_METHOD;
         node.useContourMask = config.useContourMask !== false;  // Default true
 
         setNodeStatus(node, 'ready');

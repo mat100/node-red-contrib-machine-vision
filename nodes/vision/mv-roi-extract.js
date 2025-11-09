@@ -1,5 +1,5 @@
 module.exports = function(RED) {
-    const axios = require('axios');
+    const visionUtils = require('../lib/vision-utils');
 
     function MVROIExtractNode(config) {
         RED.nodes.createNode(this, config);
@@ -9,34 +9,46 @@ module.exports = function(RED) {
         node.apiConfig = RED.nodes.getNode(config.apiConfig);
 
         // Configuration
-        node.roi = config.roi || {x: 0, y: 0, width: 100, height: 100};
-        node.roiMode = config.roiMode || 'absolute';
+        node.roi = config.roi || {
+            x: visionUtils.CONSTANTS.ROI.DEFAULT_X,
+            y: visionUtils.CONSTANTS.ROI.DEFAULT_Y,
+            width: visionUtils.CONSTANTS.ROI.DEFAULT_WIDTH,
+            height: visionUtils.CONSTANTS.ROI.DEFAULT_HEIGHT
+        };
+        node.roiMode = config.roiMode || visionUtils.CONSTANTS.ROI.MODE_ABSOLUTE;
 
-        node.status({fill: "grey", shape: "ring", text: "ready"});
+        visionUtils.setNodeStatus(node, 'ready');
 
         node.on('input', async function(msg, send, done) {
             send = send || function() { node.send.apply(node, arguments) };
             done = done || function(err) { if(err) node.error(err, msg) };
 
             try {
-                // Get image_id from message payload
+                // Get and validate image_id from message payload
                 const imageId = msg.payload?.image_id;
                 if (!imageId) {
                     throw new Error("No image_id in msg.payload");
                 }
 
-                node.status({fill: "blue", shape: "dot", text: "extracting ROI..."});
+                // Validate image ID for security
+                const imageIdValidation = visionUtils.validateImageId(imageId);
+                if (!imageIdValidation.valid) {
+                    visionUtils.setNodeStatus(node, 'error', 'invalid image_id');
+                    throw new Error(imageIdValidation.error);
+                }
+
+                visionUtils.setNodeStatus(node, 'processing', visionUtils.CONSTANTS.STATUS_TEXT.EXTRACTING_ROI);
 
                 // Calculate bounding box based on mode
                 let bounding_box;
                 const configRoi = {
-                    x: parseInt(node.roi.x) || 0,
-                    y: parseInt(node.roi.y) || 0,
-                    width: parseInt(node.roi.width) || 100,
-                    height: parseInt(node.roi.height) || 100
+                    x: parseInt(node.roi.x) || visionUtils.CONSTANTS.ROI.DEFAULT_X,
+                    y: parseInt(node.roi.y) || visionUtils.CONSTANTS.ROI.DEFAULT_Y,
+                    width: parseInt(node.roi.width) || visionUtils.CONSTANTS.ROI.DEFAULT_WIDTH,
+                    height: parseInt(node.roi.height) || visionUtils.CONSTANTS.ROI.DEFAULT_HEIGHT
                 };
 
-                if (node.roiMode === 'relative' && msg.payload.bounding_box) {
+                if (node.roiMode === visionUtils.CONSTANTS.ROI.MODE_RELATIVE && msg.payload.bounding_box) {
                     // Relative mode: add ROI offset to existing bounding box
                     const inputBox = msg.payload.bounding_box;
                     bounding_box = {
@@ -50,51 +62,40 @@ module.exports = function(RED) {
                     bounding_box = configRoi;
                 }
 
+                // Validate ROI coordinates
+                const roiValidation = visionUtils.validateROI(bounding_box);
+                if (!roiValidation.valid) {
+                    visionUtils.setNodeStatus(node, 'error', 'invalid ROI');
+                    throw new Error(roiValidation.error);
+                }
+
+                visionUtils.debugLog(node, 'roi-extract', 'Extracting ROI', {
+                    image_id: imageId,
+                    roi: bounding_box,
+                    mode: node.roiMode
+                });
+
                 // Prepare request
                 const requestData = {
                     image_id: imageId,
                     roi: bounding_box
                 };
 
-                // Get API configuration
-                if (!node.apiConfig) {
-                    throw new Error('Missing API configuration. Please configure mv-config node.');
-                }
-                const apiUrl = node.apiConfig.apiUrl || 'http://localhost:8000';
-                const timeout = node.apiConfig.timeout || 30000;
-
-                // Build headers
-                const headers = {
-                    'Content-Type': 'application/json'
-                };
-                if (node.apiConfig.credentials) {
-                    if (node.apiConfig.credentials.apiKey) {
-                        headers['X-API-Key'] = node.apiConfig.credentials.apiKey;
-                    }
-                    if (node.apiConfig.credentials.apiToken) {
-                        headers['Authorization'] = `Bearer ${node.apiConfig.credentials.apiToken}`;
-                    }
-                }
-
-                // Call API
-                const response = await axios.post(
-                    `${apiUrl}/api/image/extract-roi`,
-                    requestData,
-                    {
-                        timeout: timeout,
-                        headers: headers
-                    }
-                );
-
-                const result = response.data;
+                // Call API using wrapper
+                const result = await visionUtils.callImageAPI({
+                    node: node,
+                    endpoint: '/api/image/extract-roi',
+                    requestData: requestData,
+                    apiConfig: node.apiConfig,
+                    done: done
+                });
 
                 // Update status
                 const processingTime = result.processing_time_ms || 0;
-                node.status({
-                    fill: "green",
-                    shape: "dot",
-                    text: `ROI extracted: ${result.bounding_box.width}x${result.bounding_box.height} | ${processingTime}ms`
-                });
+                visionUtils.setNodeStatus(node, 'success',
+                    `ROI extracted: ${result.bounding_box.width}x${result.bounding_box.height}`,
+                    processingTime
+                );
 
                 // Preserve input VisionObject, only update bbox, center, and thumbnail
                 const outputPayload = {...msg.payload};
@@ -116,26 +117,16 @@ module.exports = function(RED) {
                 done();
 
             } catch (error) {
-                node.status({fill: "red", shape: "ring", text: "error"});
-
-                let errorMessage = "ROI extraction failed: ";
-                if (error.response) {
-                    errorMessage += error.response.data?.detail || error.response.statusText;
-                    node.error(errorMessage, msg);
-                } else if (error.request) {
-                    errorMessage += "No response from server";
-                    node.error(errorMessage, msg);
-                } else {
-                    errorMessage += error.message;
-                    node.error(errorMessage, msg);
+                // Error already handled by callImageAPI
+                if (!error.response) {
+                    // Only handle non-API errors here
+                    done(error);
                 }
-
-                done(error);
             }
         });
 
         node.on('close', function() {
-            node.status({});
+            visionUtils.setNodeStatus(node, 'clear');
         });
     }
 

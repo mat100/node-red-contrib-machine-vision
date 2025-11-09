@@ -7,6 +7,12 @@
         "info": "Dashboard for controlling and viewing live camera preview stream."
     },
     {
+        "id": "mv_api_config_preview",
+        "type": "mv-config",
+        "apiUrl": "http://localhost:8000",
+        "timeout": "30000"
+    },
+    {
         "id": "ui_tab_machine_vision",
         "type": "ui_tab",
         "name": "Machine Vision",
@@ -52,7 +58,7 @@
         "type": "mv-live-preview",
         "z": "flow_live_preview",
         "name": "Live Preview Handler",
-        "apiUrl": "http://localhost:8000",
+        "apiConfig": "mv_api_config_preview",
         "cameraId": "test",
         "autoStart": false,
         "showControls": true,

@@ -4,7 +4,8 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         callVisionAPI,
         getImageId,
-        getTimestamp
+        getTimestamp,
+        buildEdgeDetectParams
     } = require('../lib/vision-utils');
 
     function MVEdgeDetectNode(config) {
@@ -48,49 +49,26 @@ module.exports = function(RED) {
                 return done(new Error("No image_id provided"));
             }
 
-            // Prepare request with explicit fields
+            // Prepare request with explicit fields using parameter builder
             // Map bounding_box from previous detection to roi parameter (INPUT constraint)
             const requestData = {
                 image_id: imageId,
                 roi: msg.payload?.bounding_box || null,
-                params: {
-                    // Method selection
+                params: buildEdgeDetectParams({
                     method: node.method,
-                    // Canny parameters
-                    canny_low: parseInt(node.cannyLow) || 50,
-                    canny_high: parseInt(node.cannyHigh) || 150,
-                    // Sobel parameters
-                    sobel_threshold: parseInt(node.sobelThreshold) || 50,
-                    sobel_kernel: 3,
-                    // Laplacian parameters
-                    laplacian_threshold: parseInt(node.laplacianThreshold) || 30,
-                    laplacian_kernel: 3,
-                    // Prewitt parameters
-                    prewitt_threshold: 50,
-                    // Scharr parameters
-                    scharr_threshold: 50,
-                    // Morphological gradient parameters
-                    morph_threshold: 30,
-                    morph_kernel: 3,
-                    // Contour filtering parameters
-                    min_contour_area: parseInt(node.minContourArea) || 10,
-                    max_contour_area: parseInt(node.maxContourArea) || 100000,
-                    min_contour_perimeter: 0,
-                    max_contour_perimeter: 999999,
-                    max_contours: parseInt(node.maxContours) || 20,
-                    show_centers: true,
-                    // Preprocessing options
-                    blur_enabled: node.blurEnabled || false,
-                    blur_kernel: parseInt(node.blurKernel) || 5,
-                    bilateral_enabled: node.bilateralEnabled || false,
-                    bilateral_d: 9,
-                    bilateral_sigma_color: 75,
-                    bilateral_sigma_space: 75,
-                    morphology_enabled: node.morphologyEnabled || false,
-                    morphology_operation: node.morphologyOperation || 'close',
-                    morphology_kernel: 3,
-                    equalize_enabled: false
-                }
+                    cannyLow: node.cannyLow,
+                    cannyHigh: node.cannyHigh,
+                    sobelThreshold: node.sobelThreshold,
+                    laplacianThreshold: node.laplacianThreshold,
+                    minContourArea: node.minContourArea,
+                    maxContourArea: node.maxContourArea,
+                    maxContours: node.maxContours,
+                    blurEnabled: node.blurEnabled,
+                    blurKernel: node.blurKernel,
+                    bilateralEnabled: node.bilateralEnabled,
+                    morphologyEnabled: node.morphologyEnabled,
+                    morphologyOperation: node.morphologyOperation
+                })
             };
 
             try {

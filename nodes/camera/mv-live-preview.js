@@ -3,7 +3,7 @@
  * Provides MJPEG stream URL for camera live preview
  */
 
-const axios = require('axios');
+const visionUtils = require('../lib/vision-utils');
 
 module.exports = function(RED) {
     function MVLivePreviewNode(config) {
@@ -14,29 +14,8 @@ module.exports = function(RED) {
         // Get API configuration node
         node.apiConfig = RED.nodes.getNode(config.apiConfig);
 
-        // Helper to get API settings
-        function getApiSettings() {
-            if (!node.apiConfig) {
-                throw new Error('Missing API configuration. Please configure mv-config node.');
-            }
-            const apiUrl = node.apiConfig.apiUrl || 'http://localhost:8000';
-            const timeout = node.apiConfig.timeout || 30000;
-            const headers = {'Content-Type': 'application/json'};
-
-            if (node.apiConfig.credentials) {
-                if (node.apiConfig.credentials.apiKey) {
-                    headers['X-API-Key'] = node.apiConfig.credentials.apiKey;
-                }
-                if (node.apiConfig.credentials.apiToken) {
-                    headers['Authorization'] = `Bearer ${node.apiConfig.credentials.apiToken}`;
-                }
-            }
-
-            return {apiUrl, timeout, headers};
-        }
-
         // Store configuration
-        node.cameraId = config.cameraId || 'test';
+        node.cameraId = config.cameraId || visionUtils.CONSTANTS.CAMERA.DEFAULT_ID;
         node.autoStart = config.autoStart || false;
         node.showControls = config.showControls || true;
 
@@ -45,13 +24,13 @@ module.exports = function(RED) {
         node.streamUrl = null;
 
         // Set initial status
-        this.status({ fill: "grey", shape: "ring", text: "Ready" });
+        visionUtils.setNodeStatus(node, 'ready');
 
         function emitState({ streaming, cameraId, timestamp }) {
             const resolvedCamera = cameraId || node.cameraId;
             const isStreaming = Boolean(streaming);
             const messageTimestamp = timestamp || new Date().toISOString();
-            const {apiUrl} = getApiSettings();
+            const {apiUrl} = visionUtils.getApiSettings(node.apiConfig);
 
             node.send({
                 payload: {
@@ -67,24 +46,24 @@ module.exports = function(RED) {
             });
         }
 
-        function ensureCameraConnected(cameraId) {
-            if (cameraId === 'test') {
+        async function ensureCameraConnected(cameraId) {
+            if (cameraId === visionUtils.CONSTANTS.CAMERA.DEFAULT_ID) {
                 // Synthetic frame generator does not need explicit connection
-                return Promise.resolve(true);
+                return true;
             }
 
-            const {apiUrl, headers} = getApiSettings();
-
-            return axios.post(`${apiUrl}/api/camera/connect`, {
-                camera_id: cameraId
-            }, {headers}).then(() => {
+            try {
+                await visionUtils.callCameraAPI({
+                    node: null,  // Don't auto-handle errors, we'll handle them manually
+                    endpoint: '/api/camera/connect',
+                    requestData: { camera_id: cameraId },
+                    apiConfig: node.apiConfig
+                });
                 node.log(`Camera ${cameraId} ready for streaming`);
                 return true;
-            }).catch(error => {
-                const message = error.response && error.response.data && error.response.data.detail
-                    ? error.response.data.detail
-                    : error.message;
-                node.status({ fill: "red", shape: "ring", text: `Connect failed: ${message}` });
+            } catch (error) {
+                const message = error.response?.data?.detail || error.message;
+                visionUtils.setNodeStatus(node, 'error', `Connect failed`);
                 node.error(`Failed to connect camera ${cameraId}: ${message}`);
                 emitState({
                     streaming: false,
@@ -92,14 +71,14 @@ module.exports = function(RED) {
                     timestamp: new Date().toISOString()
                 });
                 throw error;
-            });
+            }
         }
 
         // Start stream function
-        function startStream(cameraId) {
+        async function startStream(cameraId) {
             if (!cameraId) {
                 node.error("No camera ID specified");
-                node.status({ fill: "red", shape: "ring", text: "No camera" });
+                visionUtils.setNodeStatus(node, 'error', 'no camera');
                 return;
             }
 
@@ -111,53 +90,55 @@ module.exports = function(RED) {
                 }
 
                 // Stop current stream before switching cameras
-                stopStream({ emitMessage: true });
+                await stopStream({ emitMessage: true });
             }
 
             node.cameraId = cameraId;
-            ensureCameraConnected(cameraId)
-                .then(() => {
-                    const {apiUrl} = getApiSettings();
-                    // Build MJPEG stream URL
-                    node.streamUrl = `${apiUrl}/api/camera/stream/${cameraId}`;
-                    node.streamActive = true;
+            try {
+                await ensureCameraConnected(cameraId);
+                const {apiUrl} = visionUtils.getApiSettings(node.apiConfig);
+                // Build MJPEG stream URL
+                node.streamUrl = `${apiUrl}/api/camera/stream/${cameraId}`;
+                node.streamActive = true;
 
-                    // Update status
-                    node.status({ fill: "green", shape: "dot", text: `Streaming: ${cameraId}` });
+                // Update status
+                visionUtils.setNodeStatus(node, 'success', `Streaming: ${cameraId}`);
 
-                    // Send stream URL in message
-                    emitState({
-                        streaming: true,
-                        cameraId,
-                        timestamp: new Date().toISOString()
-                    });
-                    node.log(`Started MJPEG stream for camera: ${cameraId}`);
-                })
-                .catch(() => {
-                    // Error already handled in ensureCameraConnected
+                // Send stream URL in message
+                emitState({
+                    streaming: true,
+                    cameraId,
+                    timestamp: new Date().toISOString()
                 });
+                node.log(`Started MJPEG stream for camera: ${cameraId}`);
+            } catch (error) {
+                // Error already handled in ensureCameraConnected
+            }
         }
 
         // Stop stream function
-        function stopStream(options = {}) {
+        async function stopStream(options = {}) {
             const { emitMessage = true } = options;
             const activeCamera = node.cameraId;
 
             if (node.streamActive && activeCamera) {
-                const {apiUrl, headers} = getApiSettings();
                 // Call stop endpoint
-                axios.post(`${apiUrl}/api/camera/stream/stop/${activeCamera}`, {}, {headers})
-                    .then(response => {
-                        node.log(`Stopped stream for camera: ${activeCamera}`);
-                    })
-                    .catch(error => {
-                        node.warn(`Failed to stop stream: ${error.message}`);
+                try {
+                    await visionUtils.callCameraAPI({
+                        node: null,  // Don't auto-handle errors
+                        endpoint: `/api/camera/stream/stop/${activeCamera}`,
+                        requestData: {},
+                        apiConfig: node.apiConfig
                     });
+                    node.log(`Stopped stream for camera: ${activeCamera}`);
+                } catch (error) {
+                    node.warn(`Failed to stop stream: ${error.message}`);
+                }
             }
 
             node.streamActive = false;
             node.streamUrl = null;
-            node.status({ fill: "grey", shape: "ring", text: "Stopped" });
+            visionUtils.setNodeStatus(node, 'ready', visionUtils.CONSTANTS.STATUS_TEXT.STOPPED);
 
             // Send stop message
             if (emitMessage) {
@@ -170,52 +151,64 @@ module.exports = function(RED) {
         }
 
         // Handle input messages
-        node.on('input', function(msg) {
-            // Check for control commands in message
-            if (msg.payload) {
-                // Start command
-                if (msg.payload.command === 'start' || msg.payload.start === true) {
-                    const cameraId = msg.payload.camera_id || msg.camera_id || node.cameraId;
-                    if (!node.streamActive) {
-                        startStream(cameraId);
-                    } else if (node.cameraId !== cameraId) {
-                        stopStream({ emitMessage: true });
-                        setTimeout(() => startStream(cameraId), 300);
-                    } else {
-                        emitState({ streaming: true, cameraId });
+        node.on('input', async function(msg, send, done) {
+            // Node-RED 1.0+ compatibility
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if (err) node.error(err, msg); };
+
+            try {
+                // Check for control commands in message
+                if (msg.payload) {
+                    // Start command
+                    if (msg.payload.command === 'start' || msg.payload.start === true) {
+                        const cameraId = msg.payload.camera_id || msg.camera_id || node.cameraId;
+                        if (!node.streamActive) {
+                            await startStream(cameraId);
+                        } else if (node.cameraId !== cameraId) {
+                            await stopStream({ emitMessage: true });
+                            setTimeout(() => startStream(cameraId), visionUtils.CONSTANTS.STREAM.RECONNECT_DELAY);
+                        } else {
+                            emitState({ streaming: true, cameraId });
+                        }
+                        done();
+                        return;
                     }
-                    return;
-                }
 
-                // Stop command
-                if (msg.payload.command === 'stop' || msg.payload.stop === true) {
-                    stopStream();
-                    return;
-                }
-
-                // Camera selection
-                if (msg.payload.camera_id) {
-                    node.cameraId = msg.payload.camera_id;
-                    if (node.streamActive) {
-                        // Restart with new camera
-                        stopStream();
-                        setTimeout(() => startStream(node.cameraId), 500);
+                    // Stop command
+                    if (msg.payload.command === 'stop' || msg.payload.stop === true) {
+                        await stopStream();
+                        done();
+                        return;
                     }
-                    return;
-                }
-            }
 
-            // Default action - toggle stream
-            if (node.streamActive) {
-                stopStream();
-            } else {
-                startStream(node.cameraId);
+                    // Camera selection
+                    if (msg.payload.camera_id) {
+                        node.cameraId = msg.payload.camera_id;
+                        if (node.streamActive) {
+                            // Restart with new camera
+                            await stopStream();
+                            setTimeout(() => startStream(node.cameraId), visionUtils.CONSTANTS.STREAM.STOP_DELAY);
+                        }
+                        done();
+                        return;
+                    }
+                }
+
+                // Default action - toggle stream
+                if (node.streamActive) {
+                    await stopStream();
+                } else {
+                    await startStream(node.cameraId);
+                }
+                done();
+            } catch (error) {
+                done(error);
             }
         });
 
         // Auto-start if configured
         if (node.autoStart) {
-            setTimeout(() => startStream(node.cameraId), 1000);
+            setTimeout(() => startStream(node.cameraId), visionUtils.CONSTANTS.STREAM.START_DELAY);
         } else {
             // Emit initial state for dashboard templates
             emitState({

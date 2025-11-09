@@ -1,5 +1,6 @@
 # Node.js
 node_modules/
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -21,6 +22,7 @@ pids/
 
 # Editor directories
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
@@ -38,3 +40,9 @@ lib/flows/
 # Build outputs
 dist/
 build/
+*.tgz
+
+# Test coverage
+.nyc_output/
+coverage/
+*.lcov
