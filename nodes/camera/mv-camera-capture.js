@@ -105,40 +105,38 @@ module.exports = function(RED) {
                     done: done
                 });
 
-                if (result.success) {
-                    const metadata = result.metadata;
-                    const imageId = result.image_id;
-
-                    // Build VisionObject using utility
-                    const visionObject = visionUtils.createCameraVisionObject(
-                        imageId,
-                        result.timestamp,
-                        metadata,
-                        result.thumbnail_base64,
-                        visionUtils.CONSTANTS.OBJECT_TYPES.CAMERA_CAPTURE
-                    );
-
-                    // Add camera-specific properties
-                    visionObject.properties.camera_id = node.cameraId;
-                    visionObject.properties.resolution = [metadata.width, metadata.height];
-
-                    msg.payload = visionObject;
-
-                    // Metadata in root
-                    msg.success = true;
-                    msg.processing_time_ms = result.processing_time_ms || 0;
-                    msg.node_name = node.name || "Camera Capture";
-
-                    visionUtils.setNodeStatus(node, 'success',
-                        `captured: ${imageId.substring(0, 8)}...`,
-                        msg.processing_time_ms
-                    );
-
-                    send(msg);
-                    done();
-                } else {
-                    throw new Error('Capture failed');
+                // New VisionResponse format: {objects: [...], thumbnail_base64: "...", processing_time_ms: ...}
+                if (!result.objects || result.objects.length === 0) {
+                    throw new Error('No objects returned from capture');
                 }
+
+                // Extract the single VisionObject from the objects array
+                const visionObject = result.objects[0];
+                const imageId = visionObject.properties.image_id;
+                const timestamp = visionUtils.getTimestamp(msg);
+
+                // Create standardized VisionObject message using utility
+                const outputMsg = visionUtils.createVisionObjectMessage(
+                    visionObject,
+                    imageId,
+                    timestamp,
+                    result.thumbnail_base64,
+                    msg,
+                    RED
+                );
+
+                // Add metadata in root
+                outputMsg.success = true;
+                outputMsg.processing_time_ms = result.processing_time_ms;
+                outputMsg.node_name = node.name || "Camera Capture";
+
+                visionUtils.setNodeStatus(node, 'success',
+                    `captured: ${imageId.substring(0, 8)}...`,
+                    result.processing_time_ms
+                );
+
+                send(outputMsg);
+                done();
 
             } catch (error) {
                 // Error already handled by callCameraAPI

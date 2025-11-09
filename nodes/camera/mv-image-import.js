@@ -38,41 +38,35 @@ module.exports = function(RED) {
                     done: done
                 });
 
-                if (result.success) {
-                    const metadata = result.metadata;
-                    const imageId = result.image_id;
-
-                    // Build VisionObject using utility
-                    const visionObject = visionUtils.createCameraVisionObject(
-                        imageId,
-                        result.timestamp,
-                        metadata,
-                        result.thumbnail_base64,
-                        visionUtils.CONSTANTS.OBJECT_TYPES.IMAGE_IMPORT
-                    );
-
-                    // Add file-specific properties
-                    visionObject.properties = {
-                        source: metadata.source,
-                        file_path: metadata.file_path,
-                        file_size_bytes: metadata.file_size_bytes,
-                        resolution: [metadata.width, metadata.height]
-                    };
-
-                    msg.payload = visionObject;
-
-                    // Metadata in root
-                    msg.success = true;
-                    msg.processing_time_ms = 0;
-                    msg.node_name = node.name || "Image Import";
-
-                    visionUtils.setNodeStatus(node, 'success', `imported: ${imageId.substring(0, 8)}...`);
-
-                    send(msg);
-                    done();
-                } else {
-                    throw new Error('Import failed');
+                // New VisionResponse format: {objects: [...], thumbnail_base64: "...", processing_time_ms: ...}
+                if (!result.objects || result.objects.length === 0) {
+                    throw new Error('No objects returned from import');
                 }
+
+                // Extract the single VisionObject from the objects array
+                const visionObject = result.objects[0];
+                const imageId = visionObject.properties.image_id;
+                const timestamp = visionUtils.getTimestamp(msg);
+
+                // Create standardized VisionObject message using utility
+                const outputMsg = visionUtils.createVisionObjectMessage(
+                    visionObject,
+                    imageId,
+                    timestamp,
+                    result.thumbnail_base64,
+                    msg,
+                    RED
+                );
+
+                // Add metadata in root
+                outputMsg.success = true;
+                outputMsg.processing_time_ms = result.processing_time_ms;
+                outputMsg.node_name = node.name || "Image Import";
+
+                visionUtils.setNodeStatus(node, 'success', `imported: ${imageId.substring(0, 8)}...`);
+
+                send(outputMsg);
+                done();
 
             } catch (error) {
                 // Error already handled by callImageAPI

@@ -90,21 +90,26 @@ module.exports = function(RED) {
                     done: done
                 });
 
-                // Update status
+                // New VisionResponse format: {objects: [...], thumbnail_base64: "...", processing_time_ms: ...}
+                if (!result.objects || result.objects.length === 0) {
+                    throw new Error('No objects returned from ROI extract');
+                }
+
+                // Extract the VisionObject from the objects array
+                const visionObject = result.objects[0];
                 const processingTime = result.processing_time_ms || 0;
+
                 visionUtils.setNodeStatus(node, 'success',
-                    `ROI extracted: ${result.bounding_box.width}x${result.bounding_box.height}`,
+                    `ROI extracted: ${visionObject.bounding_box.width}x${visionObject.bounding_box.height}`,
                     processingTime
                 );
 
                 // Preserve input VisionObject, only update bbox, center, and thumbnail
                 const outputPayload = {...msg.payload};
-                outputPayload.bounding_box = result.bounding_box;
-                outputPayload.center = {
-                    x: result.bounding_box.x + result.bounding_box.width / 2,
-                    y: result.bounding_box.y + result.bounding_box.height / 2
-                };
-                outputPayload.thumbnail = result.thumbnail;
+                outputPayload.bounding_box = visionObject.bounding_box;
+                outputPayload.center = visionObject.center;
+                outputPayload.thumbnail = result.thumbnail_base64;
+                outputPayload.area = visionObject.area;
 
                 msg.payload = outputPayload;
 
