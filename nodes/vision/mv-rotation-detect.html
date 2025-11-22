@@ -6,7 +6,8 @@
             name: {value: ""},
             apiConfig: {value: "", type: "mv-config", required: true},
             method: {value: "min_area_rect"},
-            angleRange: {value: "0_360"}
+            angleRange: {value: "0_360"},
+            asymmetryOrientation: {value: "disabled"}
         },
         inputs: 1,
         outputs: 1,
@@ -46,6 +47,15 @@
             <option value="0_180">0° to 180° (symmetric)</option>
         </select>
     </div>
+
+    <div class="form-row">
+        <label for="node-input-asymmetryOrientation"><i class="fa fa-arrows-h"></i> Asymmetry Orient</label>
+        <select id="node-input-asymmetryOrientation">
+            <option value="disabled">Disabled</option>
+            <option value="thick_to_thin">Thick → Thin</option>
+            <option value="thin_to_thick">Thin → Thick</option>
+        </select>
+    </div>
 </script>
 
 <script type="text/html" data-help-name="mv-rotation-detect">
@@ -66,9 +76,9 @@
     <h3>Outputs</h3>
     <dl class="message-properties">
         <dt>payload.rotation <span class="property-type">number</span></dt>
-        <dd>Absolute rotation angle in configured range</dd>
+        <dd>Rotation angle (oriented by asymmetry if enabled)</dd>
 
-        <dt>payload.rotation_relative <span class="property-type">number (optional)</span></dt>
+        <dt>payload.plane_rotation <span class="property-type">number (optional)</span></dt>
         <dd>Rotation relative to reference_object (only if reference present)</dd>
 
         <dt>payload.rotation_confidence <span class="property-type">number</span></dt>
@@ -79,7 +89,7 @@
             <ul>
                 <li><code>rotation_method</code>: Method used</li>
                 <li><code>absolute_angle</code>: Absolute angle value</li>
-                <li><code>reference_angle</code>: Reference rotation (if used)</li>
+                <li><code>thickness_ratio</code>: Thickness asymmetry ratio (if asymmetry enabled)</li>
             </ul>
         </dd>
     </dl>
@@ -97,6 +107,15 @@
         <li><strong>-180° to +180°</strong>: Signed angle, easier for deviation calculations</li>
         <li><strong>0° to 180°</strong>: For symmetric objects (no 0°/180° distinction)</li>
     </ul>
+
+    <h3>Asymmetry Orientation</h3>
+    <p>For asymmetric objects (e.g., screw with head, connector), orient rotation consistently:</p>
+    <ul>
+        <li><strong>Disabled</strong>: Standard rotation (may point either direction)</li>
+        <li><strong>Thick → Thin</strong>: 0° always points from thicker part to thinner part</li>
+        <li><strong>Thin → Thick</strong>: 0° always points from thinner part to thicker part</li>
+    </ul>
+    <p>The <code>thickness_ratio</code> indicates asymmetry strength (higher = more asymmetric).</p>
 
     <h3>Reference Convention</h3>
     <p><strong>0° = Horizontal Right (→)</strong>, rotating counter-clockwise:</p>

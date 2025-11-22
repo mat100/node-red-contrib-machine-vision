@@ -17,6 +17,7 @@ module.exports = function(RED) {
         // Configuration
         node.method = config.method || CONSTANTS.ROTATION_DETECT.DEFAULT_METHOD;
         node.angleRange = config.angleRange || CONSTANTS.ROTATION_DETECT.DEFAULT_ANGLE_RANGE;
+        node.asymmetryOrientation = config.asymmetryOrientation || "disabled";
 
         setNodeStatus(node, 'ready');
 
@@ -47,7 +48,8 @@ module.exports = function(RED) {
                 roi: msg.payload?.bounding_box || null,  // For visualization context
                 params: {
                     method: node.method,
-                    angle_range: node.angleRange
+                    angle_range: node.angleRange,
+                    asymmetry_orientation: node.asymmetryOrientation
                 },
                 reference_object: msg.reference_object || null  // Pass reference for backend transformation
             };
@@ -81,6 +83,11 @@ module.exports = function(RED) {
                     rotation_angle_range: obj.properties.angle_range,
                     absolute_angle: obj.properties.absolute_angle
                 };
+
+                // Add thickness_ratio if asymmetry orientation was used
+                if (obj.properties.thickness_ratio !== undefined) {
+                    outputMsg.payload.properties.thickness_ratio = obj.properties.thickness_ratio;
+                }
 
                 // Use backend-calculated plane_rotation and plane_position if available
                 if (obj.plane_rotation !== null && obj.plane_rotation !== undefined) {
