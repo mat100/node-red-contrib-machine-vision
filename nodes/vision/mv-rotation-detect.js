@@ -48,7 +48,8 @@ module.exports = function(RED) {
                 params: {
                     method: node.method,
                     angle_range: node.angleRange
-                }
+                },
+                reference_object: msg.reference_object || null  // Pass reference for backend transformation
             };
 
             try {
@@ -81,25 +82,12 @@ module.exports = function(RED) {
                     absolute_angle: obj.properties.absolute_angle
                 };
 
-                // Calculate relative rotation if reference_object exists (from ArUco detection)
-                if (msg.reference_object && typeof msg.reference_object.rotation === 'number') {
-                    let relativeAngle = obj.rotation - msg.reference_object.rotation;
-
-                    // Normalize based on angle range setting
-                    if (node.angleRange === '0_360') {
-                        while (relativeAngle < 0) relativeAngle += 360;
-                        while (relativeAngle >= 360) relativeAngle -= 360;
-                    } else if (node.angleRange === '-180_180') {
-                        while (relativeAngle < -180) relativeAngle += 360;
-                        while (relativeAngle > 180) relativeAngle -= 360;
-                    } else if (node.angleRange === '0_180') {
-                        while (relativeAngle < 0) relativeAngle += 180;
-                        while (relativeAngle >= 180) relativeAngle -= 180;
-                    }
-
-                    outputMsg.payload.rotation_relative = relativeAngle;
-                    outputMsg.payload.properties.reference_angle = msg.reference_object.rotation;
-                    outputMsg.payload.properties.reference_marker_id = msg.reference_object.marker_id;
+                // Use backend-calculated plane_rotation and plane_position if available
+                if (obj.plane_rotation !== null && obj.plane_rotation !== undefined) {
+                    outputMsg.payload.plane_rotation = obj.plane_rotation;
+                }
+                if (obj.plane_position !== null && obj.plane_position !== undefined) {
+                    outputMsg.payload.plane_position = obj.plane_position;
                 }
 
                 // Update thumbnail
@@ -117,8 +105,8 @@ module.exports = function(RED) {
 
                 // Status message showing absolute and relative angles
                 let statusText = `${obj.rotation.toFixed(1)}°`;
-                if (outputMsg.payload.rotation_relative !== undefined) {
-                    statusText += ` (Δ${outputMsg.payload.rotation_relative.toFixed(1)}°)`;
+                if (obj.plane_rotation !== null && obj.plane_rotation !== undefined) {
+                    statusText += ` (ref: ${obj.plane_rotation.toFixed(1)}°)`;
                 }
 
                 setNodeStatus(node, 'success', statusText, result.processing_time_ms);

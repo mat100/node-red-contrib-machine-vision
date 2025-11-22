@@ -1,0 +1,277 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-aruco-reference', {
+        category: 'Machine Vision',
+        color: '#70AD47',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            dictionary: {value: "DICT_4X4_50"},
+            mode: {value: "single"},
+            // Single marker config
+            singleMarkerId: {value: 0, validate: RED.validators.number()},
+            singleMarkerSize: {value: 50.0, validate: RED.validators.number()},
+            singleOrigin: {value: "marker_center"},
+            singleRotationRef: {value: "marker_rotation"},
+            // Plane config
+            planeMarkerIds: {value: {top_left: 0, top_right: 1, bottom_right: 2, bottom_left: 3}},
+            planeWidth: {value: 200.0, validate: RED.validators.number()},
+            planeHeight: {value: 150.0, validate: RED.validators.number()},
+            planeOrigin: {value: "top_left"},
+            planeXDirection: {value: "right"},
+            planeYDirection: {value: "down"}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-arrows",
+        label: function() {
+            return this.name || "ArUco Reference";
+        },
+        paletteLabel: "ArUco reference",
+        oneditprepare: function() {
+            const node = this;
+
+            // Show/hide config based on mode
+            function updateModeVisibility() {
+                const mode = $("#node-input-mode").val();
+                if (mode === 'single') {
+                    $(".form-row-single").show();
+                    $(".form-row-plane").hide();
+                } else {
+                    $(".form-row-single").hide();
+                    $(".form-row-plane").show();
+                }
+            }
+
+            // Mode selector change handler
+            $("#node-input-mode").on("change", updateModeVisibility);
+
+            // Initialize plane marker IDs from object
+            if (node.planeMarkerIds) {
+                $("#node-input-plane-marker-tl").val(node.planeMarkerIds.top_left || 0);
+                $("#node-input-plane-marker-tr").val(node.planeMarkerIds.top_right || 1);
+                $("#node-input-plane-marker-br").val(node.planeMarkerIds.bottom_right || 2);
+                $("#node-input-plane-marker-bl").val(node.planeMarkerIds.bottom_left || 3);
+            }
+
+            // Initial visibility
+            updateModeVisibility();
+        },
+        oneditsave: function() {
+            // Convert plane marker ID inputs to object
+            this.planeMarkerIds = {
+                top_left: parseInt($("#node-input-plane-marker-tl").val()),
+                top_right: parseInt($("#node-input-plane-marker-tr").val()),
+                bottom_right: parseInt($("#node-input-plane-marker-br").val()),
+                bottom_left: parseInt($("#node-input-plane-marker-bl").val())
+            };
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-aruco-reference">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="ArUco Reference">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-dictionary"><i class="fa fa-book"></i> Dictionary</label>
+        <select id="node-input-dictionary">
+            <option value="DICT_4X4_50">DICT_4X4_50</option>
+            <option value="DICT_4X4_100">DICT_4X4_100</option>
+            <option value="DICT_4X4_250">DICT_4X4_250</option>
+            <option value="DICT_4X4_1000">DICT_4X4_1000</option>
+            <option value="DICT_5X5_50">DICT_5X5_50</option>
+            <option value="DICT_5X5_100">DICT_5X5_100</option>
+            <option value="DICT_5X5_250">DICT_5X5_250</option>
+            <option value="DICT_5X5_1000">DICT_5X5_1000</option>
+            <option value="DICT_6X6_50">DICT_6X6_50</option>
+            <option value="DICT_6X6_100">DICT_6X6_100</option>
+            <option value="DICT_6X6_250">DICT_6X6_250</option>
+            <option value="DICT_6X6_1000">DICT_6X6_1000</option>
+            <option value="DICT_7X7_50">DICT_7X7_50</option>
+            <option value="DICT_7X7_100">DICT_7X7_100</option>
+            <option value="DICT_7X7_250">DICT_7X7_250</option>
+            <option value="DICT_7X7_1000">DICT_7X7_1000</option>
+            <option value="DICT_ARUCO_ORIGINAL">DICT_ARUCO_ORIGINAL</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-mode"><i class="fa fa-sliders"></i> Mode</label>
+        <select id="node-input-mode">
+            <option value="single">Single Marker</option>
+            <option value="plane">Plane (4 markers)</option>
+        </select>
+    </div>
+
+    <!-- Single Marker Configuration -->
+    <div class="form-row form-row-single">
+        <label for="node-input-singleMarkerId"><i class="fa fa-qrcode"></i> Marker ID</label>
+        <input type="number" id="node-input-singleMarkerId" placeholder="0" min="0">
+    </div>
+
+    <div class="form-row form-row-single">
+        <label for="node-input-singleMarkerSize"><i class="fa fa-arrows-h"></i> Marker Size (mm)</label>
+        <input type="number" id="node-input-singleMarkerSize" placeholder="50.0" step="0.1" min="0.1">
+    </div>
+
+    <div class="form-row form-row-single">
+        <label for="node-input-singleOrigin"><i class="fa fa-crosshairs"></i> Origin Point</label>
+        <select id="node-input-singleOrigin">
+            <option value="marker_center">Marker Center</option>
+            <option value="marker_top_left">Marker Top Left</option>
+            <option value="marker_bottom_left">Marker Bottom Left</option>
+        </select>
+    </div>
+
+    <div class="form-row form-row-single">
+        <label for="node-input-singleRotationRef"><i class="fa fa-rotate-right"></i> Rotation Reference</label>
+        <select id="node-input-singleRotationRef">
+            <option value="marker_rotation">Marker Rotation</option>
+            <option value="image_axes">Image Axes (0°)</option>
+        </select>
+    </div>
+
+    <!-- Plane Configuration -->
+    <div class="form-row form-row-plane">
+        <label><i class="fa fa-th"></i> Marker IDs (corners)</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-left: 110px;">
+            <div>
+                <label style="width: auto; margin-right: 5px;">Top Left:</label>
+                <input type="number" id="node-input-plane-marker-tl" style="width: 60px;" placeholder="0" min="0">
+            </div>
+            <div>
+                <label style="width: auto; margin-right: 5px;">Top Right:</label>
+                <input type="number" id="node-input-plane-marker-tr" style="width: 60px;" placeholder="1" min="0">
+            </div>
+            <div>
+                <label style="width: auto; margin-right: 5px;">Bottom Left:</label>
+                <input type="number" id="node-input-plane-marker-bl" style="width: 60px;" placeholder="3" min="0">
+            </div>
+            <div>
+                <label style="width: auto; margin-right: 5px;">Bottom Right:</label>
+                <input type="number" id="node-input-plane-marker-br" style="width: 60px;" placeholder="2" min="0">
+            </div>
+        </div>
+    </div>
+
+    <div class="form-row form-row-plane">
+        <label for="node-input-planeWidth"><i class="fa fa-arrows-h"></i> Plane Width (mm)</label>
+        <input type="number" id="node-input-planeWidth" placeholder="200.0" step="0.1" min="0.1">
+    </div>
+
+    <div class="form-row form-row-plane">
+        <label for="node-input-planeHeight"><i class="fa fa-arrows-v"></i> Plane Height (mm)</label>
+        <input type="number" id="node-input-planeHeight" placeholder="150.0" step="0.1" min="0.1">
+    </div>
+
+    <div class="form-row form-row-plane">
+        <label for="node-input-planeOrigin"><i class="fa fa-crosshairs"></i> Origin Corner</label>
+        <select id="node-input-planeOrigin">
+            <option value="top_left">Top Left</option>
+            <option value="top_right">Top Right</option>
+            <option value="bottom_left">Bottom Left</option>
+            <option value="bottom_right">Bottom Right</option>
+        </select>
+    </div>
+
+    <div class="form-row form-row-plane">
+        <label for="node-input-planeXDirection"><i class="fa fa-arrows-h"></i> X Direction</label>
+        <select id="node-input-planeXDirection">
+            <option value="right">Right →</option>
+            <option value="left">Left ←</option>
+        </select>
+    </div>
+
+    <div class="form-row form-row-plane">
+        <label for="node-input-planeYDirection"><i class="fa fa-arrows-v"></i> Y Direction</label>
+        <select id="node-input-planeYDirection">
+            <option value="down">Down ↓</option>
+            <option value="up">Up ↑</option>
+        </select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-aruco-reference">
+    <p>Creates a coordinate reference frame from ArUco markers for transforming pixel coordinates to real-world millimeter measurements.</p>
+
+    <h3>Modes</h3>
+    <dl class="message-properties">
+        <dt>Single Marker</dt>
+        <dd>Uses one ArUco marker with known size. Provides uniform scaling (suitable for perpendicular camera view).</dd>
+
+        <dt>Plane (4 markers)</dt>
+        <dd>Uses four ArUco markers at corners. Provides perspective transform (handles camera angle).</dd>
+    </dl>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>Image ID from camera capture or msg.payload.image_id</dd>
+
+        <dt>payload <span class="property-type">any</span></dt>
+        <dd>Original payload is preserved in output (forward pattern)</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>reference_object <span class="property-type">object</span></dt>
+        <dd>
+            Reference frame containing:
+            <ul>
+                <li><code>type</code>: "single_marker" or "plane"</li>
+                <li><code>units</code>: "mm" (millimeters)</li>
+                <li><code>homography_matrix</code>: 3x3 transformation matrix</li>
+                <li><code>metadata</code>: Configuration and calibration data</li>
+            </ul>
+        </dd>
+
+        <dt>payload <span class="property-type">any</span></dt>
+        <dd>Original payload unchanged (preserved from input)</dd>
+
+        <dt>markers <span class="property-type">array</span></dt>
+        <dd>Detected ArUco markers used for calibration (for debugging)</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node creates a reference coordinate system that can be used by downstream vision nodes (template matching, rotation detection, color detection) to transform their results from pixel coordinates to real-world millimeter coordinates.</p>
+
+    <p><strong>Single Marker Mode:</strong></p>
+    <ul>
+        <li>Specify marker ID and physical size in mm</li>
+        <li>Choose origin point (center, top-left, or bottom-left)</li>
+        <li>Choose rotation reference (marker rotation or image axes)</li>
+        <li>Best for perpendicular camera view</li>
+    </ul>
+
+    <p><strong>Plane Mode:</strong></p>
+    <ul>
+        <li>Place 4 markers at corners of calibration plane</li>
+        <li>Specify marker IDs for each corner</li>
+        <li>Enter physical dimensions (width × height in mm)</li>
+        <li>Configure coordinate system (origin, X/Y directions)</li>
+        <li>Handles perspective distortion from camera angle</li>
+    </ul>
+
+    <h3>Example Flow</h3>
+    <pre>
+[Camera Capture] → [ArUco Reference] → [Template Match] → [Debug]
+                          ↓                    ↓
+                   creates reference    adds plane_position_mm
+                                       adds plane_rotation_deg
+    </pre>
+
+    <p><strong>Usage with Vision Nodes:</strong></p>
+    <p>Pass the <code>reference_object</code> to vision detection nodes (template match, rotation detect, color detect) to add transformed coordinates to their results:</p>
+    <ul>
+        <li><code>plane_position_mm</code>: {x, y} position in millimeters</li>
+        <li><code>plane_rotation_deg</code>: Rotation angle relative to reference</li>
+        <li><code>plane_dimensions_mm</code>: {width, height} in millimeters</li>
+    </ul>
+</script>
