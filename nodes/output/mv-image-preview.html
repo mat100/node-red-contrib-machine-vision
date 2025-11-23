@@ -1,0 +1,251 @@
+<script type="text/javascript">
+(function() {
+    const DEFAULT_HEIGHT = 160;
+
+    RED.nodes.registerType('mv-image-preview', {
+        category: 'Machine Vision',
+        color: '#ED7D31',
+        defaults: {
+            name: { value: "" },
+            apiConfig: { value: "", type: "mv-config", required: true },
+            imageSource: { value: 'vision', required: true },
+            height: {
+                value: DEFAULT_HEIGHT,
+                validate: function(v) { return !v || !isNaN(parseInt(v, 10)) }
+            },
+            active: { value: true }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-image",
+        align: 'right',
+        label: function() {
+            return this.name || "image preview";
+        },
+        paletteLabel: "image preview",
+        button: {
+            toggle: "active",
+            onclick: function() {
+                const node = this;
+                const label = this.active ? 'disable' : 'enable';
+
+                $.ajax({
+                    url: `mv-image-preview/${this.id}/${label}`,
+                    type: "POST",
+                    success: function(resp) {
+                        RED.notify("Image preview " + resp, "success");
+                    },
+                    error: function(jqXHR) {
+                        if (jqXHR.status === 404) {
+                            RED.notify("Node not deployed", "error");
+                        } else {
+                            RED.notify("Unexpected error: " + jqXHR.status, "error");
+                        }
+                    }
+                });
+            }
+        }
+    });
+
+    // Image rendering logic
+    const latestImages = {};
+
+    function remove(nodeid) {
+        const $img = document.getElementById("mv-image-preview-img-" + nodeid);
+        if ($img) $img.remove();
+        delete latestImages[nodeid];
+    }
+
+    function downloadImage(base64Data, imageId, source, nodeId) {
+        if (source === 'vision' && imageId) {
+            // Download full quality from backend API
+            const node = RED.nodes.node(nodeId);
+            if (!node || !node.apiConfig) {
+                RED.notify("API configuration not found", "error");
+                return;
+            }
+
+            const apiConfigNode = RED.nodes.node(node.apiConfig);
+            if (!apiConfigNode) {
+                RED.notify("API configuration node not found", "error");
+                return;
+            }
+
+            const apiUrl = apiConfigNode.apiUrl || 'http://localhost:8000';
+
+            // Create compact timestamp for filename (YYYYMMDD-HHMMSS)
+            const timestamp = new Date().toISOString()
+                .replace(/[-:]/g, '')
+                .replace('T', '-')
+                .slice(0, 15);
+
+            // Fetch image and trigger download
+            fetch(apiUrl + '/api/image/' + imageId)
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'mv-' + imageId.substring(0, 8) + '-' + timestamp + '.jpg';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(err => {
+                    RED.notify("Download failed: " + err.message, "error");
+                });
+        } else {
+            // Download thumbnail (reference object or no image_id)
+            const timestamp = new Date().toISOString()
+                .replace(/[-:]/g, '')
+                .replace('T', '-')
+                .slice(0, 15);
+            const link = document.createElement('a');
+            link.href = "data:image/jpeg;base64," + base64Data;
+            link.download = 'mv-thumbnail-' + timestamp + '.jpg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+    function render(id, data, imageId, source, node) {
+        if (!data) {
+            remove(id);
+            return;
+        }
+
+        let $img = document.getElementById("mv-image-preview-img-" + id);
+        const $container = document.getElementById(id);
+
+        if (!$img && $container) {
+            // Create image element
+            const img = document.createElementNS("http://www.w3.org/2000/svg", 'image');
+            img.setAttribute('id', "mv-image-preview-img-" + id);
+            img.setAttribute('x', '0');
+            img.setAttribute('y', '45');
+            img.setAttribute('style', 'cursor: pointer');
+
+            // Download on click
+            img.addEventListener("click", function() {
+                downloadImage(data, imageId, source, id);
+            });
+
+            $container.insertBefore(img, $container.lastChild.nextSibling);
+            $img = img;
+        }
+
+        if ($img) {
+            const i = new Image();
+            i.onload = function() {
+                // Calculate width based on configured height and aspect ratio
+                const configuredHeight = node.height || DEFAULT_HEIGHT;
+                const width = Math.round(configuredHeight * i.width / i.height);
+
+                $img.setAttribute('height', configuredHeight);
+                $img.setAttribute('width', width);
+            };
+            $img.setAttribute('href', "data:image/jpeg;base64," + data);
+            i.src = "data:image/jpeg;base64," + data;
+        }
+    }
+
+    // Subscribe to image updates via WebSocket
+    RED.comms.subscribe('mv-image-preview', function(event, data) {
+        if (data.hasOwnProperty("data")) {
+            latestImages[data.id] = {
+                data: data.data,
+                image_id: data.image_id,
+                source: data.source
+            };
+            const node = RED.nodes.node(data.id);
+            if (node) {
+                render(data.id, data.data, data.image_id, data.source, node);
+            }
+        } else {
+            // Clear display
+            remove(data.id);
+        }
+    });
+
+    // Redraw on editor save (in case height changed)
+    RED.events.on("editor:save", function(node) {
+        if (node.type === 'mv-image-preview' && latestImages[node.id]) {
+            const img = latestImages[node.id];
+            render(node.id, img.data, img.image_id, img.source, node);
+        }
+    });
+})();
+</script>
+
+<script type="text/html" data-template-name="mv-image-preview">
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-cog"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+    <div class="form-row">
+        <label for="node-input-imageSource"><i class="fa fa-picture-o"></i> Source</label>
+        <select id="node-input-imageSource" style="width:70%">
+            <option value="vision">Vision Object (with overlay)</option>
+            <option value="reference">Reference Object (ArUco frame)</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-height"><i class="fa fa-arrows-v"></i> Height (px)</label>
+        <input type="number" id="node-input-height" placeholder="160" style="width:70%">
+    </div>
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-tips">
+        <strong>Click image to download.</strong><br/>
+        Vision Object downloads full quality from backend.<br/>
+        Reference Object downloads thumbnail only.<br/>
+        Toggle button enables/disables preview (messages always pass through).
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-image-preview">
+    <p>Displays image thumbnails directly in the Node-RED editor with click-to-download.</p>
+
+    <h3>Image Sources</h3>
+    <dl class="message-properties">
+        <dt>Vision Object <span class="property-type">default</span></dt>
+        <dd>Displays processed image with overlays from vision nodes.
+            Reads from <code>msg.payload.thumbnail</code> or <code>msg.thumbnail</code>.
+            Downloads full quality using <code>msg.payload.image_id</code>.</dd>
+
+        <dt>Reference Object</dt>
+        <dd>Displays ArUco reference frame visualization from aruco-reference node.
+            Reads from <code>msg.reference_object.thumbnail</code>.
+            Downloads thumbnail quality only.</dd>
+    </dl>
+
+    <h3>Features</h3>
+    <ul>
+        <li><strong>Click to download:</strong> Vision objects download full quality JPEG from backend API</li>
+        <li><strong>Toggle button:</strong> Enable/disable preview (messages always pass through)</li>
+        <li><strong>Configurable height:</strong> Width calculated automatically to preserve aspect ratio</li>
+        <li><strong>Always passthrough:</strong> Messages flow through even when preview is disabled</li>
+    </ul>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload.thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64-encoded JPEG thumbnail (for Vision Object mode)</dd>
+
+        <dt>payload.image_id <span class="property-type">string</span></dt>
+        <dd>Image UUID for downloading full quality (for Vision Object mode)</dd>
+
+        <dt>reference_object.thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64-encoded reference frame visualization (for Reference Object mode)</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>Original message passed through unchanged</dd>
+    </dl>
+</script>

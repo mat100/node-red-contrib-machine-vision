@@ -38,7 +38,8 @@
       "mv-aruco-reference": "nodes/vision/mv-aruco-reference.js",
       "mv-rotation-detect": "nodes/vision/mv-rotation-detect.js",
       "mv-roi-extract": "nodes/vision/mv-roi-extract.js",
-      "mv-overlay": "nodes/output/mv-overlay.js"
+      "mv-overlay": "nodes/output/mv-overlay.js",
+      "mv-image-preview": "nodes/output/mv-image-preview.js"
     }
   },
   "scripts": {
