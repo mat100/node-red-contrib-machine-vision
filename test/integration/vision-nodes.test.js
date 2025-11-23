@@ -1028,4 +1028,231 @@ describe('Vision Nodes (Mock Integration)', function() {
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
     });
+
+    describe('mv-advanced-template-match', function() {
+        let advancedTemplateMatchNode;
+
+        beforeEach(function() {
+            advancedTemplateMatchNode = require('../../nodes/vision/mv-advanced-template-match.js');
+        });
+
+        it('should register with Node-RED', function() {
+            advancedTemplateMatchNode(RED);
+            expect(RED.nodes.registerType.calledOnce).to.be.true;
+            expect(RED.nodes.registerType.calledWith('mv-advanced-template-match')).to.be.true;
+        });
+
+        it('should set ready status on creation', function() {
+            advancedTemplateMatchNode(RED);
+            const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
+
+            const mockApiConfig = {
+                apiUrl: 'http://localhost:8000',
+                timeout: 30000
+            };
+            RED.nodes.getNode.returns(mockApiConfig);
+
+            const config = {
+                name: 'test advanced template',
+                apiConfig: 'mock-api-config',
+                templateId: 'tmpl_test',
+                findMultiple: true,
+                enableRotation: true
+            };
+            new NodeConstructor(config);
+
+            expect(node.status.called).to.be.true;
+        });
+
+        it('should detect multiple instances with rotation', function(done) {
+            this.timeout(10000);
+
+            advancedTemplateMatchNode(RED);
+            const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
+
+            const mockApiConfig = {
+                apiUrl: 'http://localhost:8000',
+                timeout: 30000
+            };
+            RED.nodes.getNode.returns(mockApiConfig);
+
+            // Mock successful advanced template match response with multiple matches
+            const scope = nock('http://localhost:8000')
+                .post('/api/vision/advanced-template-match', () => true)
+                .reply(200, {
+                    success: true,
+                    objects: [
+                        {
+                            object_id: 'match_0',
+                            object_type: 'template_match',
+                            bounding_box: { x: 100, y: 100, width: 50, height: 50 },
+                            center: { x: 125, y: 125 },
+                            confidence: 0.95,
+                            rotation: 45.0,
+                            properties: {
+                                template_id: 'tmpl_test',
+                                rotation_angle: 45.0
+                            }
+                        },
+                        {
+                            object_id: 'match_1',
+                            object_type: 'template_match',
+                            bounding_box: { x: 200, y: 150, width: 50, height: 50 },
+                            center: { x: 225, y: 175 },
+                            confidence: 0.88,
+                            rotation: 90.0,
+                            properties: {
+                                template_id: 'tmpl_test',
+                                rotation_angle: 90.0
+                            }
+                        }
+                    ],
+                    thumbnail_base64: 'base64encodedimage',
+                    processing_time_ms: 250
+                });
+
+            const config = {
+                apiConfig: 'mock-api-config',
+                templateId: 'tmpl_test',
+                threshold: 0.8,
+                findMultiple: true,
+                maxMatches: 10,
+                overlapThreshold: 0.3,
+                enableRotation: true,
+                rotationRange: [-90, 90],
+                rotationStep: 15.0
+            };
+            const nodeInstance = new NodeConstructor(config);
+
+            const inputHandler = node.on.withArgs('input').getCall(0).args[1];
+
+            let messageCount = 0;
+            const mockSend = sinon.stub().callsFake(function(msg) {
+                messageCount++;
+
+                // Verify message structure
+                expect(msg).to.have.property('payload');
+                expect(msg.payload).to.have.property('object_id');
+                expect(msg.payload).to.have.property('confidence');
+                expect(msg).to.have.property('rotation_angle');
+                expect(msg).to.have.property('thumbnail');
+                expect(msg).to.have.property('processing_time_ms');
+
+                // Verify rotation angles
+                if (messageCount === 1) {
+                    expect(msg.rotation_angle).to.equal(45.0);
+                } else if (messageCount === 2) {
+                    expect(msg.rotation_angle).to.equal(90.0);
+                    // Both messages received
+                    expect(scope.isDone()).to.be.true;
+                    done();
+                }
+            });
+
+            const mockDone = sinon.stub();
+
+            const msg = { image_id: 'img_123' };
+            inputHandler.call(nodeInstance, msg, mockSend, mockDone);
+        });
+
+        it('should handle zero matches', function(done) {
+            this.timeout(10000);
+
+            advancedTemplateMatchNode(RED);
+            const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
+
+            const mockApiConfig = {
+                apiUrl: 'http://localhost:8000',
+                timeout: 30000
+            };
+            RED.nodes.getNode.returns(mockApiConfig);
+
+            // Mock response with no matches
+            const scope = nock('http://localhost:8000')
+                .post('/api/vision/advanced-template-match', () => true)
+                .reply(200, {
+                    success: true,
+                    objects: [],
+                    thumbnail_base64: 'base64encodedimage',
+                    processing_time_ms: 150
+                });
+
+            const config = {
+                apiConfig: 'mock-api-config',
+                templateId: 'tmpl_test',
+                findMultiple: true,
+                enableRotation: true
+            };
+            const nodeInstance = new NodeConstructor(config);
+
+            const inputHandler = node.on.withArgs('input').getCall(0).args[1];
+
+            const mockSend = sinon.stub();
+            const mockDone = sinon.stub().callsFake(function() {
+                // Should not send any messages for zero results
+                expect(mockSend.called).to.be.false;
+                expect(scope.isDone()).to.be.true;
+                done();
+            });
+
+            const msg = { image_id: 'img_123' };
+            inputHandler.call(nodeInstance, msg, mockSend, mockDone);
+        });
+
+        it('should handle missing template_id', function(done) {
+            advancedTemplateMatchNode(RED);
+            const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
+
+            const mockApiConfig = {
+                apiUrl: 'http://localhost:8000',
+                timeout: 30000
+            };
+            RED.nodes.getNode.returns(mockApiConfig);
+
+            const config = {
+                apiConfig: 'mock-api-config'
+                // No templateId provided
+            };
+            const nodeInstance = new NodeConstructor(config);
+
+            const inputHandler = node.on.withArgs('input').getCall(0).args[1];
+
+            const mockDone = sinon.stub().callsFake(function(err) {
+                expect(err).to.exist;
+                expect(err.message).to.include('No template_id');
+                done();
+            });
+
+            const msg = { image_id: 'img_123' };
+            inputHandler.call(nodeInstance, msg, () => {}, mockDone);
+        });
+
+        it('should handle missing image_id', function(done) {
+            advancedTemplateMatchNode(RED);
+            const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
+
+            const mockApiConfig = {
+                apiUrl: 'http://localhost:8000',
+                timeout: 30000
+            };
+            RED.nodes.getNode.returns(mockApiConfig);
+
+            const config = {
+                apiConfig: 'mock-api-config',
+                templateId: 'tmpl_test'
+            };
+            const nodeInstance = new NodeConstructor(config);
+
+            const inputHandler = node.on.withArgs('input').getCall(0).args[1];
+
+            const mockDone = sinon.stub().callsFake(function(err) {
+                expect(err).to.exist;
+                expect(err.message).to.include('No image_id');
+                done();
+            });
+
+            const msg = { payload: {} }; // No image_id
+            inputHandler.call(nodeInstance, msg, () => {}, mockDone);
+        });
+    });
 });

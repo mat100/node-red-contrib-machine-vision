@@ -1,0 +1,253 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-advanced-template-match', {
+        category: 'Machine Vision',
+        color: '#70AD47',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            templateId: {value: ""},
+            threshold: {value: 0.8, validate: function(v) { return v >= 0 && v <= 1; }},
+            method: {value: "TM_CCOEFF_NORMED"},
+            // Multi-instance parameters
+            findMultiple: {value: false},
+            maxMatches: {value: 10, validate: function(v) { return v >= 1 && v <= 100; }},
+            overlapThreshold: {value: 0.3, validate: function(v) { return v >= 0 && v <= 1; }},
+            // Rotation parameters
+            enableRotation: {value: false},
+            rotationRange: {value: [-180, 180]},
+            rotationStep: {value: 10.0, validate: function(v) { return v >= 1 && v <= 90; }}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-search-plus",
+        label: function() {
+            return this.name || "Advanced Template Match";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "advanced template",
+        inputLabels: "image to search",
+        outputLabels: ["match result(s)"],
+        oneditprepare: function() {
+            const node = this;
+
+            // Initialize rotation range
+            $("#node-input-rotation-min").val(this.rotationRange[0] || -180);
+            $("#node-input-rotation-max").val(this.rotationRange[1] || 180);
+
+            // Toggle multi-instance fields
+            $("#node-input-findMultiple").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $("#multi-instance-settings").show();
+                } else {
+                    $("#multi-instance-settings").hide();
+                }
+            }).trigger('change');
+
+            // Toggle rotation fields
+            $("#node-input-enableRotation").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $("#rotation-settings").show();
+                } else {
+                    $("#rotation-settings").hide();
+                }
+            }).trigger('change');
+
+            // Load template list
+            $("#template-refresh").on('click', function() {
+                const configId = $("#node-input-apiConfig").val();
+                const configNode = RED.nodes.node(configId);
+                const apiUrl = configNode ? configNode.apiUrl : 'http://localhost:8000';
+
+                $.ajax({
+                    url: apiUrl + "/api/template/list",
+                    type: "GET",
+                    success: function(templates) {
+                        const select = $("#node-input-templateId");
+                        select.empty();
+                        select.append('<option value="">-- Select Template --</option>');
+                        templates.forEach(function(tmpl) {
+                            select.append($('<option>', {
+                                value: tmpl.id,
+                                text: tmpl.name + ' (' + tmpl.id + ')'
+                            }));
+                        });
+                        // Restore selected value
+                        select.val(node.templateId);
+                    },
+                    error: function(err) {
+                        console.error("Failed to load templates:", err);
+                    }
+                });
+            });
+
+            // Load templates on open
+            $("#template-refresh").trigger('click');
+        },
+        oneditsave: function() {
+            // Save rotation range
+            this.rotationRange = [
+                parseFloat($("#node-input-rotation-min").val()) || -180,
+                parseFloat($("#node-input-rotation-max").val()) || 180
+            ];
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-advanced-template-match">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <hr>
+    <h4>Template Settings</h4>
+
+    <div class="form-row">
+        <label for="node-input-templateId"><i class="fa fa-image"></i> Template</label>
+        <select id="node-input-templateId" style="width: 250px;">
+            <option value="">-- Select Template --</option>
+        </select>
+        <button type="button" id="template-refresh" class="red-ui-button" style="margin-left: 10px;">
+            <i class="fa fa-refresh"></i>
+        </button>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-threshold"><i class="fa fa-sliders"></i> Threshold</label>
+        <input type="number" id="node-input-threshold" min="0" max="1" step="0.05" style="width: 100px;">
+        <span style="margin-left: 10px; color: #666;">0.0 - 1.0 (higher = stricter)</span>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-method"><i class="fa fa-cogs"></i> Method</label>
+        <select id="node-input-method" style="width: 250px;">
+            <option value="TM_CCOEFF_NORMED">Correlation Coefficient (Normalized)</option>
+            <option value="TM_CCOEFF">Correlation Coefficient</option>
+            <option value="TM_CCORR_NORMED">Cross Correlation (Normalized)</option>
+            <option value="TM_CCORR">Cross Correlation</option>
+            <option value="TM_SQDIFF_NORMED">Squared Difference (Normalized)</option>
+            <option value="TM_SQDIFF">Squared Difference</option>
+        </select>
+    </div>
+
+    <hr>
+    <h4>Multi-Instance Detection</h4>
+
+    <div class="form-row">
+        <label for="node-input-findMultiple">
+            <i class="fa fa-th"></i> Find Multiple
+        </label>
+        <input type="checkbox" id="node-input-findMultiple" style="width: auto;">
+        <label for="node-input-findMultiple" style="width: auto; margin-left: 10px;">
+            Find all instances (not just best match)
+        </label>
+    </div>
+
+    <div id="multi-instance-settings" style="display: none; margin-left: 20px;">
+        <div class="form-row">
+            <label for="node-input-maxMatches" style="width: 140px;">Max Matches:</label>
+            <input type="number" id="node-input-maxMatches" style="width: 100px" min="1" max="100" step="1">
+            <span style="margin-left: 10px; color: #666;">Maximum instances to detect</span>
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-overlapThreshold" style="width: 140px;">Overlap Threshold:</label>
+            <input type="number" id="node-input-overlapThreshold" style="width: 100px" min="0" max="1" step="0.05">
+            <span style="margin-left: 10px; color: #666;">IoU threshold for NMS (0.0 = strict, 1.0 = allow all)</span>
+        </div>
+    </div>
+
+    <hr>
+    <h4>Rotation Detection</h4>
+
+    <div class="form-row">
+        <label for="node-input-enableRotation">
+            <i class="fa fa-rotate-right"></i> Enable Rotation
+        </label>
+        <input type="checkbox" id="node-input-enableRotation" style="width: auto;">
+        <label for="node-input-enableRotation" style="width: auto; margin-left: 10px;">
+            Search for rotated objects
+        </label>
+    </div>
+
+    <div id="rotation-settings" style="display: none; margin-left: 20px;">
+        <div class="form-row">
+            <label style="width: 140px;">Rotation Range:</label>
+            <label for="node-input-rotation-min" style="width: 40px;">Min:</label>
+            <input type="number" id="node-input-rotation-min" style="width: 80px" min="-180" max="180" step="5">
+            <label for="node-input-rotation-max" style="width: 40px; margin-left: 10px;">Max:</label>
+            <input type="number" id="node-input-rotation-max" style="width: 80px" min="-180" max="180" step="5">
+            <span style="margin-left: 10px; color: #666;">degrees</span>
+        </div>
+
+        <div class="form-row">
+            <label for="node-input-rotationStep" style="width: 140px;">Rotation Step:</label>
+            <input type="number" id="node-input-rotationStep" style="width: 100px" min="1" max="90" step="1">
+            <span style="margin-left: 10px; color: #666;">degrees (smaller = more accurate, slower)</span>
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-advanced-template-match">
+    <p>Advanced template matching with rotation-invariant and multi-instance detection capabilities.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>The ID of the image to search in</dd>
+        <dt class="optional">templateId <span class="property-type">string</span></dt>
+        <dd>Override the configured template ID</dd>
+        <dt class="optional">payload.bounding_box <span class="property-type">object</span></dt>
+        <dd>Optional ROI to limit search area</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>VisionObject with detection details (bounding_box, center, confidence)</dd>
+        <dt class="optional">rotation_angle <span class="property-type">number</span></dt>
+        <dd>Rotation angle in degrees (if enable_rotation is true)</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64-encoded thumbnail with matches overlay</dd>
+        <dt>processing_time_ms <span class="property-type">number</span></dt>
+        <dd>Processing time in milliseconds</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node provides advanced template matching capabilities beyond the basic template match node:</p>
+
+    <h4>Multi-Instance Detection:</h4>
+    <ul>
+        <li><b>Find Multiple</b> - Detects all occurrences of the template, not just the best match</li>
+        <li><b>Max Matches</b> - Limits the number of instances to return</li>
+        <li><b>Overlap Threshold</b> - Controls Non-Maximum Suppression (NMS) for filtering overlapping detections</li>
+    </ul>
+
+    <h4>Rotation-Invariant Matching:</h4>
+    <ul>
+        <li><b>Enable Rotation</b> - Searches for template at multiple rotation angles</li>
+        <li><b>Rotation Range</b> - Angle range to search (e.g., -90° to +90°)</li>
+        <li><b>Rotation Step</b> - Angle increment for search (smaller = more accurate but slower)</li>
+    </ul>
+
+    <h4>Use Cases:</h4>
+    <ul>
+        <li>Batch inspection - Find multiple parts in one image</li>
+        <li>Rotated object detection - Detect objects at any orientation</li>
+        <li>Quality control - Count instances of a pattern</li>
+        <li>Assembly verification - Locate all components regardless of rotation</li>
+    </ul>
+
+    <h4>Performance Notes:</h4>
+    <p>Enabling rotation search increases processing time proportionally to the rotation range and step size.
+    For example, a range of -180° to 180° with 10° steps requires 36 template matches.</p>
+
+    <p><b>Tip:</b> Start with larger rotation steps (10-15°) for faster results, then refine if needed.</p>
+</script>
