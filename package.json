@@ -29,6 +29,7 @@
       "mv-camera-capture": "nodes/camera/mv-camera-capture.js",
       "mv-live-preview": "nodes/camera/mv-live-preview.js",
       "mv-image-import": "nodes/camera/mv-image-import.js",
+      "mv-test-image": "nodes/camera/mv-test-image.js",
       "mv-template-match": "nodes/vision/mv-template-match.js",
       "mv-advanced-template-match": "nodes/vision/mv-advanced-template-match.js",
       "mv-edge-detect": "nodes/vision/mv-edge-detect.js",
@@ -47,7 +48,10 @@
     "lint": "eslint nodes/**/*.js"
   },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0",
+    "express-fileupload": "^1.4.0",
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.0",

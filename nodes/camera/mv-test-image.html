@@ -1,0 +1,288 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-test-image', {
+        category: 'Machine Vision',
+        color: '#D4A373',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            testId: {value: ""},
+            testImageName: {value: "Test Image"}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-file-image-o",
+        label: function() {
+            return this.name || this.testImageName || "Test Image";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "test image",
+        inputLabels: "trigger",
+        outputLabels: ["test image captured"],
+        oneditprepare: function() {
+            var node = this;
+
+            // Get API URL from config node
+            function getApiUrl() {
+                var configId = $("#node-input-apiConfig").val();
+                var configNode = RED.nodes.node(configId);
+                return configNode ? configNode.apiUrl : 'http://localhost:8000';
+            }
+
+            // Show/hide upload vs existing selection
+            function toggleMode() {
+                var mode = $('input[name="test-image-mode"]:checked').val();
+                if (mode === 'upload') {
+                    $('#upload-section').show();
+                    $('#existing-section').hide();
+                } else {
+                    $('#upload-section').hide();
+                    $('#existing-section').show();
+                    loadExistingTestImages();
+                }
+            }
+
+            // Initial mode
+            if (node.testId) {
+                $('#mode-existing').prop('checked', true);
+            } else {
+                $('#mode-upload').prop('checked', true);
+            }
+            toggleMode();
+
+            // Handle mode toggle
+            $('input[name="test-image-mode"]').on('change', toggleMode);
+
+            // Load existing test images from backend
+            function loadExistingTestImages() {
+                var select = $('#existing-test-image-select');
+                select.empty().append('<option value="">Loading...</option>');
+
+                // Get API config ID to pass to backend
+                var apiConfigId = $('#node-input-apiConfig').val();
+                var url = '/mv-test-image/list';
+                if (apiConfigId) {
+                    url += '?apiConfigId=' + apiConfigId;
+                }
+
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(data) {
+                        select.empty();
+
+                        if (data.test_images && data.test_images.length > 0) {
+                            select.append('<option value="">-- Select Test Image --</option>');
+                            data.test_images.forEach(function(img) {
+                                var displayName = img.original_filename + ' (' + img.size.width + 'x' + img.size.height + ')';
+                                var selected = img.id === node.testId ? 'selected' : '';
+                                select.append('<option value="' + img.id + '" ' + selected + '>' + displayName + '</option>');
+                            });
+                        } else {
+                            select.append('<option value="">No test images available</option>');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        select.empty().append('<option value="">Error loading test images</option>');
+                        console.error('Failed to load test images:', error);
+                    }
+                });
+            }
+
+            // Handle file selection
+            $('#test-image-file').on('change', function(e) {
+                var file = e.target.files[0];
+                if (file) {
+                    // Show preview
+                    var reader = new FileReader();
+                    reader.onload = function(e) {
+                        $('#test-image-preview').html('<img src="' + e.target.result + '" style="max-width: 200px; max-height: 200px; border: 1px solid #ccc;">');
+                        $('#upload-info').html('<p><strong>' + file.name + '</strong><br>Size: ' + (file.size / 1024).toFixed(1) + ' KB</p>');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Upload button
+            $('#upload-button').on('click', function() {
+                var fileInput = $('#test-image-file')[0];
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    RED.notify('Please select an image file first', 'error');
+                    return;
+                }
+
+                var file = fileInput.files[0];
+                var formData = new FormData();
+                formData.append('testImage', file);
+
+                var uploadBtn = $(this);
+                uploadBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Uploading...');
+
+                $.ajax({
+                    url: '/mv-test-image/upload/' + node.id,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        if (data.success) {
+                            // Store test_id in node config
+                            $('#node-input-testId').val(data.test_id);
+                            $('#node-input-testImageName').val(data.filename);
+
+                            RED.notify('Test image uploaded successfully!', 'success');
+                            $('#upload-result').html(
+                                '<div style="color: green; margin-top: 10px;">' +
+                                '<i class="fa fa-check-circle"></i> Uploaded: ' + data.filename +
+                                '<br>Resolution: ' + data.width + 'x' + data.height +
+                                '<br>Test ID: ' + data.test_id.substring(0, 12) + '...' +
+                                '</div>'
+                            );
+                        } else {
+                            RED.notify('Upload failed: ' + (data.error || 'Unknown error'), 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        var errorMsg = 'Upload failed';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        }
+                        RED.notify(errorMsg, 'error');
+                        console.error('Upload error:', error);
+                    },
+                    complete: function() {
+                        uploadBtn.prop('disabled', false).html('<i class="fa fa-upload"></i> Upload');
+                    }
+                });
+            });
+
+            // Handle existing test image selection
+            $('#existing-test-image-select').on('change', function() {
+                var selectedId = $(this).val();
+                if (selectedId) {
+                    $('#node-input-testId').val(selectedId);
+                    // Extract filename from option text
+                    var selectedText = $(this).find('option:selected').text();
+                    var filename = selectedText.split(' (')[0];
+                    $('#node-input-testImageName').val(filename);
+                }
+            });
+        },
+        oneditsave: function() {
+            // Resolution values already bound to config
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-test-image">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Test Image">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-cog"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <div class="form-row">
+        <label style="width: 100%;"><i class="fa fa-image"></i> Test Image Source</label>
+        <div style="margin-left: 110px;">
+            <input type="radio" name="test-image-mode" id="mode-upload" value="upload" style="width: auto; margin-right: 5px;">
+            <label for="mode-upload" style="width: auto;">Upload New Image</label>
+            &nbsp;&nbsp;
+            <input type="radio" name="test-image-mode" id="mode-existing" value="existing" style="width: auto; margin-right: 5px;">
+            <label for="mode-existing" style="width: auto;">Use Existing</label>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div id="upload-section" style="margin-left: 110px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+        <div class="form-row">
+            <label for="test-image-file" style="width: 100%; font-weight: bold;">Select Image File:</label>
+            <input type="file" id="test-image-file" accept="image/*" style="margin-top: 5px;">
+        </div>
+
+        <div class="form-row">
+            <div id="test-image-preview"></div>
+            <div id="upload-info" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="form-row">
+            <button type="button" id="upload-button" class="red-ui-button">
+                <i class="fa fa-upload"></i> Upload
+            </button>
+        </div>
+
+        <div class="form-row">
+            <div id="upload-result"></div>
+        </div>
+    </div>
+
+    <!-- Existing Test Image Section -->
+    <div id="existing-section" style="margin-left: 110px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+        <div class="form-row">
+            <label for="existing-test-image-select" style="width: 100%; font-weight: bold;">Select Test Image:</label>
+            <select id="existing-test-image-select" style="width: 100%; margin-top: 5px;">
+                <option value="">Loading...</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Hidden fields to store test_id and name -->
+    <input type="hidden" id="node-input-testId">
+    <input type="hidden" id="node-input-testImageName">
+
+    <div class="form-tips" style="margin-top: 20px;">
+        <p><strong>Usage:</strong> Upload a test image to use instead of a real camera. Each trigger will return the same image (like a frozen camera frame), perfect for testing vision algorithms without hardware.</p>
+        <p><strong>Supported formats:</strong> PNG, JPG, BMP, TIFF, WebP</p>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-test-image">
+    <p>Provides a static test image source for testing vision algorithms without a camera.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">any</span></dt>
+        <dd>Trigger signal (value ignored)</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>VisionObject with image_id and test metadata</dd>
+
+        <dt>payload.properties.image_id <span class="property-type">string</span></dt>
+        <dd>UUID of captured image in ImageManager</dd>
+
+        <dt>payload.properties.test_id <span class="property-type">string</span></dt>
+        <dd>ID of the test image in backend</dd>
+
+        <dt>test_id <span class="property-type">string</span></dt>
+        <dd>Test image ID (also in root for convenience)</dd>
+
+        <dt>test_image_name <span class="property-type">string</span></dt>
+        <dd>Original filename of the test image</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node loads a pre-uploaded test image from the backend on each trigger, simulating camera capture but with a consistent image. Perfect for testing and developing vision flows without physical cameras.</p>
+
+    <p>The test image is stored persistently on the backend and survives restarts. Each trigger creates a new <code>image_id</code> in the ImageManager (just like camera capture), so the image can be processed by all vision nodes.</p>
+
+    <h3>Configuration</h3>
+    <ul>
+        <li><strong>Upload New Image:</strong> Select and upload an image file from your computer</li>
+        <li><strong>Use Existing:</strong> Choose from previously uploaded test images</li>
+    </ul>
+
+    <h3>Example Flow</h3>
+    <pre>[inject] → [mv-test-image] → [mv-edge-detect] → [mv-overlay] → [debug]</pre>
+
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://github.com/machine-vision/backend">Backend API Documentation</a></li>
+    </ul>
+</script>

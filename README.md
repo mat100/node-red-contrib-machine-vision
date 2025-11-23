@@ -5,6 +5,7 @@ Machine Vision nodes for Node-RED, providing industrial-grade computer vision ca
 ## Features
 
 - **Camera Capture**: USB/IP camera support with configurable resolution and FPS
+- **Test Images**: Upload and use static test images for testing without cameras
 - **Image Simulation**: Test image generation with ArUco markers
 - **Template Matching**: Find patterns in images with configurable thresholds
 - **Edge Detection**: Multiple edge detection algorithms (Canny, Sobel, Laplacian, Prewitt, Scharr)
@@ -119,6 +120,28 @@ Capture images from USB/IP cameras or test image sources.
 **Outputs:**
 - `msg.image_id`: Unique image identifier
 - `msg.payload`: Capture metadata (timestamp, resolution)
+
+#### mv-test-image
+Load pre-uploaded test images for testing without cameras.
+
+**Configuration:**
+- Upload new image or select existing
+- Supported formats: PNG, JPG, BMP, TIFF, WebP
+- Persistent storage (survives restarts)
+
+**Outputs:**
+- `msg.payload.properties.image_id`: Unique image identifier (new per trigger)
+- `msg.test_id`: Test image identifier
+- `msg.test_image_name`: Original filename
+- `msg.thumbnail_base64`: Image preview
+
+**Use Case:**
+Perfect for testing vision flows without physical cameras. Each trigger returns the same image content (like a frozen camera frame), but creates a new `image_id` in ImageManager for processing.
+
+**Example Flow:**
+```
+[inject] → [mv-test-image] → [mv-edge-detect] → [mv-overlay] → [debug]
+```
 
 #### mv-image-simulator
 Generate test images with ArUco markers for development.
