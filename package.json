@@ -32,6 +32,7 @@
       "mv-test-image": "nodes/camera/mv-test-image.js",
       "mv-template-match": "nodes/vision/mv-template-match.js",
       "mv-advanced-template-match": "nodes/vision/mv-advanced-template-match.js",
+      "mv-feature-template-match": "nodes/vision/mv-feature-template-match.js",
       "mv-edge-detect": "nodes/vision/mv-edge-detect.js",
       "mv-color-detect": "nodes/vision/mv-color-detect.js",
       "mv-aruco-detect": "nodes/vision/mv-aruco-detect.js",

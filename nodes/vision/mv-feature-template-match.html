@@ -1,0 +1,269 @@
+<script type="text/javascript">
+    RED.nodes.registerType('mv-feature-template-match', {
+        category: 'Machine Vision',
+        color: '#5B9BD5',
+        defaults: {
+            name: {value: ""},
+            apiConfig: {value: "", type: "mv-config", required: true},
+            templateId: {value: ""},
+            threshold: {value: 0.6, validate: function(v) { return v >= 0 && v <= 1; }},
+            // Feature matching parameters
+            minMatches: {value: 10, validate: function(v) { return v >= 4 && v <= 100; }},
+            ratioThreshold: {value: 0.75, validate: function(v) { return v >= 0.5 && v <= 0.95; }},
+            // Multi-instance parameters
+            findMultiple: {value: false},
+            maxMatches: {value: 10, validate: function(v) { return v >= 1 && v <= 100; }}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "font-awesome/fa-crosshairs",
+        label: function() {
+            return this.name || "Feature Template Match";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        paletteLabel: "feature template",
+        inputLabels: "image to search",
+        outputLabels: ["match result(s)"],
+        oneditprepare: function() {
+            const node = this;
+
+            // Toggle multi-instance fields
+            $("#node-input-findMultiple").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $("#multi-instance-settings").show();
+                } else {
+                    $("#multi-instance-settings").hide();
+                }
+            }).trigger('change');
+
+            // Load template list
+            $("#template-refresh").on('click', function() {
+                const configId = $("#node-input-apiConfig").val();
+                const configNode = RED.nodes.node(configId);
+                const apiUrl = configNode ? configNode.apiUrl : 'http://localhost:8000';
+
+                $.ajax({
+                    url: apiUrl + "/api/template/list",
+                    type: "GET",
+                    success: function(templates) {
+                        const select = $("#node-input-templateId");
+                        select.empty();
+                        select.append('<option value="">-- Select Template --</option>');
+                        templates.forEach(function(tmpl) {
+                            select.append($('<option>', {
+                                value: tmpl.id,
+                                text: tmpl.name + ' (' + tmpl.id + ')'
+                            }));
+                        });
+                        // Restore selected value
+                        select.val(node.templateId);
+                    },
+                    error: function(err) {
+                        console.error("Failed to load templates:", err);
+                    }
+                });
+            });
+
+            // Load templates on open
+            $("#template-refresh").trigger('click');
+
+            // Template upload handler
+            $("#template-upload").on('click', function() {
+                $("#template-file-input").click();
+            });
+
+            $("#template-file-input").on('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const configId = $("#node-input-apiConfig").val();
+                if (!configId) {
+                    RED.notify("Please select an API Config first", "error");
+                    return;
+                }
+
+                // Extract name from filename (without extension)
+                const templateName = file.name.replace(/\.[^/.]+$/, "");
+
+                // Create FormData
+                const formData = new FormData();
+                formData.append('templateFile', file);
+                formData.append('name', templateName);
+
+                // Show progress
+                const uploadBtn = $("#template-upload");
+                const statusDiv = $("#template-upload-status");
+                uploadBtn.prop('disabled', true);
+                statusDiv.show().html('<i class="fa fa-spinner fa-spin"></i> Uploading...');
+
+                // Upload via admin endpoint
+                $.ajax({
+                    url: '/mv-template/upload?apiConfigId=' + configId,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        if (data.success) {
+                            RED.notify('Template "' + data.name + '" uploaded successfully!', 'success');
+                            statusDiv.html('<i class="fa fa-check" style="color: green;"></i> Uploaded: ' + data.name);
+
+                            // Refresh template list and select new template
+                            $("#template-refresh").trigger('click');
+                            setTimeout(function() {
+                                $("#node-input-templateId").val(data.template_id);
+                            }, 500);
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON?.error || 'Upload failed';
+                        RED.notify(errorMsg, 'error');
+                        statusDiv.html('<i class="fa fa-exclamation-triangle" style="color: red;"></i> ' + errorMsg);
+                    },
+                    complete: function() {
+                        uploadBtn.prop('disabled', false);
+                        // Clear file input for next upload
+                        $("#template-file-input").val('');
+                        // Hide status after 3 seconds
+                        setTimeout(function() {
+                            statusDiv.fadeOut();
+                        }, 3000);
+                    }
+                });
+            });
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="mv-feature-template-match">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-apiConfig"><i class="fa fa-server"></i> API Config</label>
+        <input type="text" id="node-input-apiConfig">
+    </div>
+
+    <hr>
+    <h4>Template Settings</h4>
+
+    <div class="form-row">
+        <label for="node-input-templateId"><i class="fa fa-image"></i> Template</label>
+        <select id="node-input-templateId" style="width: 250px;">
+            <option value="">-- Select Template --</option>
+        </select>
+        <button type="button" id="template-refresh" class="red-ui-button" style="margin-left: 10px;">
+            <i class="fa fa-refresh"></i>
+        </button>
+        <button type="button" id="template-upload" class="red-ui-button" style="margin-left: 5px;" title="Upload new template">
+            <i class="fa fa-plus"></i>
+        </button>
+        <input type="file" id="template-file-input" accept="image/*" style="display: none;">
+    </div>
+    <div id="template-upload-status" class="form-row" style="margin-left: 105px; display: none;">
+        <span id="upload-progress"></span>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-threshold"><i class="fa fa-sliders"></i> Threshold</label>
+        <input type="number" id="node-input-threshold" min="0" max="1" step="0.05" style="width: 100px;">
+        <span style="margin-left: 10px; color: #666;">0.0 - 1.0 (confidence threshold)</span>
+    </div>
+
+    <hr>
+    <h4>Feature Matching Parameters</h4>
+
+    <div class="form-row">
+        <label for="node-input-minMatches"><i class="fa fa-chain"></i> Min Matches</label>
+        <input type="number" id="node-input-minMatches" min="4" max="100" step="1" style="width: 100px;">
+        <span style="margin-left: 10px; color: #666;">Minimum keypoint matches required (4-100)</span>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-ratioThreshold"><i class="fa fa-filter"></i> Ratio Threshold</label>
+        <input type="number" id="node-input-ratioThreshold" min="0.5" max="0.95" step="0.05" style="width: 100px;">
+        <span style="margin-left: 10px; color: #666;">Lowe's ratio test (0.5-0.95, lower = stricter)</span>
+    </div>
+
+    <hr>
+    <h4>Multi-Instance Detection</h4>
+
+    <div class="form-row">
+        <label for="node-input-findMultiple">
+            <i class="fa fa-th"></i> Find Multiple
+        </label>
+        <input type="checkbox" id="node-input-findMultiple" style="width: auto;">
+        <label for="node-input-findMultiple" style="width: auto; margin-left: 10px;">
+            Find all instances (not just best match)
+        </label>
+    </div>
+
+    <div id="multi-instance-settings" style="display: none; margin-left: 20px;">
+        <div class="form-row">
+            <label for="node-input-maxMatches" style="width: 140px;">Max Matches:</label>
+            <input type="number" id="node-input-maxMatches" style="width: 100px" min="1" max="100" step="1">
+            <span style="margin-left: 10px; color: #666;">Maximum instances to detect</span>
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mv-feature-template-match">
+    <p>Feature-based template matching using ORB keypoint detection. Provides rotation and scale invariant matching.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>image_id <span class="property-type">string</span></dt>
+        <dd>The ID of the image to search in</dd>
+        <dt class="optional">templateId <span class="property-type">string</span></dt>
+        <dd>Override the configured template ID</dd>
+        <dt class="optional">payload.bounding_box <span class="property-type">object</span></dt>
+        <dd>Optional ROI to limit search area</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>VisionObject with detection details (bounding_box, center, confidence)</dd>
+        <dt>rotation_angle <span class="property-type">number</span></dt>
+        <dd>Rotation angle in degrees (precise, not stepped)</dd>
+        <dt>scale <span class="property-type">number</span></dt>
+        <dd>Scale factor relative to template (1.0 = same size)</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64-encoded thumbnail with matches overlay</dd>
+        <dt>processing_time_ms <span class="property-type">number</span></dt>
+        <dd>Processing time in milliseconds</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node uses ORB (Oriented FAST and Rotated BRIEF) feature detection for template matching. Unlike pixel-based template matching, it provides:</p>
+
+    <h4>Key Features:</h4>
+    <ul>
+        <li><b>Rotation Invariance</b> - Detects objects at any angle without stepping</li>
+        <li><b>Scale Invariance</b> - Handles size changes (within limits)</li>
+        <li><b>Precise Rotation</b> - Returns exact rotation angle (not stepped increments)</li>
+        <li><b>Multi-Instance</b> - Can detect multiple instances of the template</li>
+    </ul>
+
+    <h4>Parameters:</h4>
+    <ul>
+        <li><b>Threshold</b> - Minimum confidence for a valid match (0.0-1.0)</li>
+        <li><b>Min Matches</b> - Minimum keypoint matches required (default: 10)</li>
+        <li><b>Ratio Threshold</b> - Lowe's ratio test for filtering ambiguous matches (lower = stricter)</li>
+    </ul>
+
+    <h4>Template Requirements:</h4>
+    <p>For best results, use templates with:</p>
+    <ul>
+        <li>Good texture and contrast (not uniform colors)</li>
+        <li>Clear edges and corners</li>
+        <li>Asymmetric shape (for unambiguous rotation)</li>
+        <li>Minimum size: 30x30 pixels</li>
+    </ul>
+
+    <p><b>Note:</b> If template has insufficient keypoints (&lt;20), a warning will be logged and detection may be unreliable.</p>
+</script>
