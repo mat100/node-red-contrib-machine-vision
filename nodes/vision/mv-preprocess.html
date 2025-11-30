@@ -1,4 +1,15 @@
 <script type="text/javascript">
+(function() {
+    // Global cache for last image IDs (persists between editor opens)
+    const previewCache = {};
+
+    // Subscribe to image updates from runtime (once, globally)
+    RED.comms.subscribe('mv-preprocess-preview', function(event, data) {
+        if (data && data.id && data.lastImageId) {
+            previewCache[data.id] = data.lastImageId;
+        }
+    });
+
     RED.nodes.registerType('mv-preprocess', {
         category: 'Machine Vision',
         color: '#5B9BD5',
@@ -62,6 +73,14 @@
         },
         paletteLabel: "preprocess",
         oneditprepare: function() {
+            // Setup scrollable layout - params section scrolls independently
+            $("#preprocess-params-scroll").css({
+                "max-height": "400px",
+                "overflow-y": "auto",
+                "padding-right": "10px",
+                "border-top": "1px solid #ddd"
+            });
+
             // Toggle handlers for all preprocessing sections
 
             // Gaussian Blur toggle
@@ -148,8 +167,153 @@
                     $(".brightness-contrast-params").hide();
                 }
             }).trigger('change');
+
+            // ==========================================
+            // Mutual Exclusion Logic
+            // ==========================================
+
+            // Blur methods: only one can be active (Gaussian, Median, Bilateral)
+            const blurCheckboxes = [
+                "#node-input-gaussianBlurEnabled",
+                "#node-input-medianBlurEnabled",
+                "#node-input-bilateralEnabled"
+            ];
+
+            blurCheckboxes.forEach(function(checkbox) {
+                $(checkbox).on('change', function() {
+                    if ($(this).is(':checked')) {
+                        // Uncheck other blur methods
+                        blurCheckboxes.forEach(function(other) {
+                            if (other !== checkbox) {
+                                $(other).prop('checked', false).trigger('change');
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Contrast enhancement: only one can be active (Histogram EQ, CLAHE)
+            $("#node-input-histEqualizeEnabled").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $("#node-input-claheEnabled").prop('checked', false).trigger('change');
+                }
+            });
+
+            $("#node-input-claheEnabled").on('change', function() {
+                if ($(this).is(':checked')) {
+                    $("#node-input-histEqualizeEnabled").prop('checked', false).trigger('change');
+                }
+            });
+
+            // ==========================================
+            // Live Preview Logic
+            // ==========================================
+            const node = this;
+            let previewImageId = null;
+            let debounceTimer = null;
+            const DEBOUNCE_DELAY = 300;
+
+            function getApiUrl() {
+                const configNodeId = $("#node-input-apiConfig").val();
+                if (!configNodeId) return null;
+                const configNode = RED.nodes.node(configNodeId);
+                return configNode ? configNode.apiUrl : 'http://localhost:8000';
+            }
+
+            function collectParams() {
+                return {
+                    grayscale_enabled: $("#node-input-grayscaleEnabled").is(':checked'),
+                    gaussian_blur_enabled: $("#node-input-gaussianBlurEnabled").is(':checked'),
+                    gaussian_kernel: parseInt($("#node-input-gaussianKernel").val()) || 5,
+                    median_blur_enabled: $("#node-input-medianBlurEnabled").is(':checked'),
+                    median_kernel: parseInt($("#node-input-medianKernel").val()) || 5,
+                    bilateral_enabled: $("#node-input-bilateralEnabled").is(':checked'),
+                    bilateral_d: parseInt($("#node-input-bilateralD").val()) || 9,
+                    bilateral_sigma_color: parseFloat($("#node-input-bilateralSigmaColor").val()) || 75,
+                    bilateral_sigma_space: parseFloat($("#node-input-bilateralSigmaSpace").val()) || 75,
+                    morphology_enabled: $("#node-input-morphologyEnabled").is(':checked'),
+                    morphology_operation: $("#node-input-morphologyOperation").val() || 'close',
+                    morphology_kernel: parseInt($("#node-input-morphologyKernel").val()) || 3,
+                    threshold_enabled: $("#node-input-thresholdEnabled").is(':checked'),
+                    threshold_method: $("#node-input-thresholdMethod").val() || 'binary',
+                    threshold_value: parseInt($("#node-input-thresholdValue").val()) || 127,
+                    threshold_max_value: parseInt($("#node-input-thresholdMaxValue").val()) || 255,
+                    adaptive_block_size: parseInt($("#node-input-adaptiveBlockSize").val()) || 11,
+                    adaptive_c: parseFloat($("#node-input-adaptiveC").val()) || 2,
+                    hist_equalize_enabled: $("#node-input-histEqualizeEnabled").is(':checked'),
+                    clahe_enabled: $("#node-input-claheEnabled").is(':checked'),
+                    clahe_clip_limit: parseFloat($("#node-input-claheClipLimit").val()) || 2.0,
+                    clahe_tile_grid_size: parseInt($("#node-input-claheTileGridSize").val()) || 8,
+                    sharpen_enabled: $("#node-input-sharpenEnabled").is(':checked'),
+                    sharpen_strength: parseFloat($("#node-input-sharpenStrength").val()) || 1.0,
+                    brightness_contrast_enabled: $("#node-input-brightnessContrastEnabled").is(':checked'),
+                    brightness: parseInt($("#node-input-brightness").val()) || 0,
+                    contrast: parseFloat($("#node-input-contrast").val()) || 1.0
+                };
+            }
+
+            function schedulePreviewUpdate() {
+                if (!previewImageId) return;
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(updatePreview, DEBOUNCE_DELAY);
+            }
+
+            async function updatePreview() {
+                if (!previewImageId) {
+                    $("#preprocess-preview-status").text("No image");
+                    return;
+                }
+                const apiUrl = getApiUrl();
+                if (!apiUrl) {
+                    $("#preprocess-preview-status").text("Select API Config");
+                    return;
+                }
+
+                $("#preprocess-preview-status").text("Processing...");
+
+                try {
+                    const response = await fetch(apiUrl + '/api/vision/preprocess-preview', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            image_id: previewImageId,
+                            params: collectParams()
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+
+                    const data = await response.json();
+                    $("#preprocess-preview-img")
+                        .attr('src', data.thumbnail_base64)
+                        .show();
+                    $("#preprocess-preview-placeholder").hide();
+                    $("#preprocess-preview-status").text(data.processing_time_ms + 'ms');
+                } catch (error) {
+                    $("#preprocess-preview-status").text('Error: ' + error.message);
+                }
+            }
+
+            // Event bindings for preview
+            $("#preprocess-refresh-btn").on('click', function() {
+                updatePreview();
+            });
+
+            // Bind all parameter changes to trigger preview update
+            $("[id^='node-input-']").on('change input', function() {
+                schedulePreviewUpdate();
+            });
+
+            // Load cached image when editor opens
+            if (previewCache[node.id]) {
+                previewImageId = previewCache[node.id];
+                updatePreview();
+            }
         }
     });
+})();
 </script>
 
 <script type="text/html" data-template-name="mv-preprocess">
@@ -163,47 +327,114 @@
         <input type="text" id="node-input-apiConfig">
     </div>
 
-    <hr>
-    <h4>Color Conversion</h4>
-
-    <div class="form-row">
-        <label for="node-input-grayscaleEnabled"><i class="fa fa-adjust"></i> Grayscale</label>
-        <input type="checkbox" id="node-input-grayscaleEnabled" style="width:auto;">
-        <span class="form-tips" style="margin-left:10px;">Convert to grayscale</span>
+    <!-- Live Preview Panel -->
+    <div class="form-row" id="preprocess-preview-row">
+        <div id="preprocess-preview-panel" style="border: 1px solid #ccc; border-radius: 4px; padding: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="margin: 0;"><i class="fa fa-eye"></i> Live Preview</label>
+                <button type="button" id="preprocess-refresh-btn" class="red-ui-button red-ui-button-small" title="Refresh preview">
+                    <i class="fa fa-refresh"></i>
+                </button>
+            </div>
+            <div id="preprocess-preview-container" style="text-align: center; min-height: 180px; background: #f5f5f5; border-radius: 3px;">
+                <div id="preprocess-preview-placeholder" style="padding: 60px 20px; color: #888;">
+                    <i class="fa fa-image" style="font-size: 48px;"></i>
+                    <p style="margin: 10px 0 0 0;">No image yet - run flow first</p>
+                </div>
+                <img id="preprocess-preview-img" style="width: 100%; height: auto; display: none;" />
+            </div>
+            <div id="preprocess-preview-status" style="font-size: 11px; color: #666; margin-top: 4px; text-align: right;"></div>
+        </div>
     </div>
 
-    <hr>
-    <h4>Noise Reduction</h4>
+    <!-- Scrollable Parameters Container -->
+    <div id="preprocess-params-scroll">
 
-    <!-- Gaussian Blur -->
+    <!-- 1. Brightness/Contrast (first - adjust input levels) -->
+    <hr>
+    <h4><i class="fa fa-sun-o"></i> Brightness/Contrast</h4>
     <div class="form-row">
-        <label for="node-input-gaussianBlurEnabled"><i class="fa fa-circle-o"></i> Gaussian Blur</label>
+        <label for="node-input-brightnessContrastEnabled">Enable</label>
+        <input type="checkbox" id="node-input-brightnessContrastEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">Adjust input levels first</span>
+    </div>
+    <div class="brightness-contrast-params" style="display:none; margin-left:20px;">
+        <div class="form-row">
+            <label for="node-input-brightness">Brightness</label>
+            <input type="number" id="node-input-brightness" min="-100" max="100" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">-100 darker, +100 lighter</span>
+        </div>
+        <div class="form-row">
+            <label for="node-input-contrast">Contrast</label>
+            <input type="number" id="node-input-contrast" min="0" max="3" step="0.1" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">1.0 = no change</span>
+        </div>
+    </div>
+
+    <!-- 2. Grayscale -->
+    <hr>
+    <h4><i class="fa fa-adjust"></i> Color Conversion</h4>
+    <div class="form-row">
+        <label for="node-input-grayscaleEnabled">Grayscale</label>
+        <input type="checkbox" id="node-input-grayscaleEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">Required for threshold</span>
+    </div>
+
+    <!-- 3. Contrast Enhancement (pick one) -->
+    <hr>
+    <h4><i class="fa fa-bar-chart"></i> Contrast Enhancement <small style="color:#888">(max 1)</small></h4>
+    <div class="form-row">
+        <label for="node-input-histEqualizeEnabled">Histogram EQ</label>
+        <input type="checkbox" id="node-input-histEqualizeEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">Global contrast enhancement</span>
+    </div>
+    <div class="form-row">
+        <label for="node-input-claheEnabled">CLAHE</label>
+        <input type="checkbox" id="node-input-claheEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">Adaptive local contrast</span>
+    </div>
+    <div class="clahe-params" style="display:none; margin-left:20px;">
+        <div class="form-row">
+            <label for="node-input-claheClipLimit">Clip Limit</label>
+            <input type="number" id="node-input-claheClipLimit" min="0" step="0.5" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Higher = stronger effect</span>
+        </div>
+        <div class="form-row">
+            <label for="node-input-claheTileGridSize">Tile Size</label>
+            <input type="number" id="node-input-claheTileGridSize" min="1" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Smaller = more detail</span>
+        </div>
+    </div>
+
+    <!-- 4. Noise Reduction (pick one) -->
+    <hr>
+    <h4><i class="fa fa-circle-o"></i> Noise Reduction <small style="color:#888">(max 1)</small></h4>
+    <div class="form-row">
+        <label for="node-input-gaussianBlurEnabled">Gaussian Blur</label>
         <input type="checkbox" id="node-input-gaussianBlurEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">General noise reduction</span>
     </div>
     <div class="gaussian-params" style="display:none; margin-left:20px;">
         <div class="form-row">
             <label for="node-input-gaussianKernel">Kernel Size</label>
             <input type="number" id="node-input-gaussianKernel" min="3" max="31" step="2" style="width:80px;">
-            <span class="form-tips" style="margin-left:10px;">Must be odd (3-31)</span>
+            <span class="form-tips" style="margin-left:10px;">Larger = stronger blur (odd)</span>
         </div>
     </div>
-
-    <!-- Median Blur -->
     <div class="form-row">
-        <label for="node-input-medianBlurEnabled"><i class="fa fa-circle-o"></i> Median Blur</label>
+        <label for="node-input-medianBlurEnabled">Median Blur</label>
         <input type="checkbox" id="node-input-medianBlurEnabled" style="width:auto;">
-        <span class="form-tips" style="margin-left:10px;">Removes salt-pepper noise</span>
+        <span class="form-tips" style="margin-left:10px;">Best for salt-pepper noise</span>
     </div>
     <div class="median-params" style="display:none; margin-left:20px;">
         <div class="form-row">
             <label for="node-input-medianKernel">Kernel Size</label>
             <input type="number" id="node-input-medianKernel" min="3" max="31" step="2" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Must be odd (3-31)</span>
         </div>
     </div>
-
-    <!-- Bilateral Filter -->
     <div class="form-row">
-        <label for="node-input-bilateralEnabled"><i class="fa fa-circle-o"></i> Bilateral Filter</label>
+        <label for="node-input-bilateralEnabled">Bilateral Filter</label>
         <input type="checkbox" id="node-input-bilateralEnabled" style="width:auto;">
         <span class="form-tips" style="margin-left:10px;">Edge-preserving blur</span>
     </div>
@@ -211,134 +442,107 @@
         <div class="form-row">
             <label for="node-input-bilateralD">Diameter</label>
             <input type="number" id="node-input-bilateralD" min="1" max="15" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Neighborhood size</span>
         </div>
         <div class="form-row">
             <label for="node-input-bilateralSigmaColor">Sigma Color</label>
             <input type="number" id="node-input-bilateralSigmaColor" min="0" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Color sensitivity</span>
         </div>
         <div class="form-row">
             <label for="node-input-bilateralSigmaSpace">Sigma Space</label>
             <input type="number" id="node-input-bilateralSigmaSpace" min="0" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Spatial sensitivity</span>
         </div>
     </div>
 
+    <!-- 5. Sharpening -->
     <hr>
-    <h4>Morphological Operations</h4>
-
+    <h4><i class="fa fa-diamond"></i> Sharpening</h4>
     <div class="form-row">
-        <label for="node-input-morphologyEnabled"><i class="fa fa-th"></i> Morphology</label>
-        <input type="checkbox" id="node-input-morphologyEnabled" style="width:auto;">
+        <label for="node-input-sharpenEnabled">Enable</label>
+        <input type="checkbox" id="node-input-sharpenEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">Enhance edges</span>
     </div>
-    <div class="morphology-params" style="display:none; margin-left:20px;">
+    <div class="sharpen-params" style="display:none; margin-left:20px;">
         <div class="form-row">
-            <label for="node-input-morphologyOperation">Operation</label>
-            <select id="node-input-morphologyOperation" style="width:150px;">
-                <option value="erode">Erode</option>
-                <option value="dilate">Dilate</option>
-                <option value="open">Open</option>
-                <option value="close">Close</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label for="node-input-morphologyKernel">Kernel Size</label>
-            <input type="number" id="node-input-morphologyKernel" min="1" max="15" style="width:80px;">
+            <label for="node-input-sharpenStrength">Strength</label>
+            <input type="number" id="node-input-sharpenStrength" min="0" max="5" step="0.1" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">0-5, recommended 0.5-2.0</span>
         </div>
     </div>
 
+    <!-- 6. Thresholding -->
     <hr>
-    <h4>Thresholding</h4>
-
+    <h4><i class="fa fa-adjust"></i> Thresholding</h4>
     <div class="form-row">
-        <label for="node-input-thresholdEnabled"><i class="fa fa-adjust"></i> Threshold</label>
+        <label for="node-input-thresholdEnabled">Enable</label>
         <input type="checkbox" id="node-input-thresholdEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">Segment image to binary</span>
     </div>
     <div class="threshold-params" style="display:none; margin-left:20px;">
         <div class="form-row">
             <label for="node-input-thresholdMethod">Method</label>
             <select id="node-input-thresholdMethod" style="width:180px;">
-                <option value="binary">Binary</option>
+                <option value="binary">Binary (manual)</option>
                 <option value="otsu">Otsu (automatic)</option>
                 <option value="adaptive_mean">Adaptive Mean</option>
                 <option value="adaptive_gaussian">Adaptive Gaussian</option>
             </select>
+            <span class="form-tips" style="margin-left:10px;">Binary=manual, Otsu=auto, Adaptive=local</span>
         </div>
         <div class="binary-params">
             <div class="form-row">
                 <label for="node-input-thresholdValue">Threshold</label>
                 <input type="number" id="node-input-thresholdValue" min="0" max="255" style="width:80px;">
+                <span class="form-tips" style="margin-left:10px;">0-255, binary only</span>
             </div>
         </div>
         <div class="adaptive-params" style="display:none;">
             <div class="form-row">
                 <label for="node-input-adaptiveBlockSize">Block Size</label>
                 <input type="number" id="node-input-adaptiveBlockSize" min="3" max="99" step="2" style="width:80px;">
+                <span class="form-tips" style="margin-left:10px;">Local region size (odd)</span>
             </div>
             <div class="form-row">
                 <label for="node-input-adaptiveC">Constant C</label>
                 <input type="number" id="node-input-adaptiveC" style="width:80px;">
+                <span class="form-tips" style="margin-left:10px;">Subtracted from mean</span>
             </div>
         </div>
         <div class="form-row">
             <label for="node-input-thresholdMaxValue">Max Value</label>
             <input type="number" id="node-input-thresholdMaxValue" min="0" max="255" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Output value (usually 255)</span>
         </div>
     </div>
 
+    <!-- 7. Morphological Operations (post-threshold) -->
     <hr>
-    <h4>Contrast Enhancement</h4>
-
+    <h4><i class="fa fa-th"></i> Morphology <small style="color:#888">(post-threshold)</small></h4>
     <div class="form-row">
-        <label for="node-input-histEqualizeEnabled"><i class="fa fa-bar-chart"></i> Histogram EQ</label>
-        <input type="checkbox" id="node-input-histEqualizeEnabled" style="width:auto;">
-        <span class="form-tips" style="margin-left:10px;">Basic histogram equalization</span>
+        <label for="node-input-morphologyEnabled">Enable</label>
+        <input type="checkbox" id="node-input-morphologyEnabled" style="width:auto;">
+        <span class="form-tips" style="margin-left:10px;">Clean binary image</span>
     </div>
-
-    <div class="form-row">
-        <label for="node-input-claheEnabled"><i class="fa fa-bar-chart"></i> CLAHE</label>
-        <input type="checkbox" id="node-input-claheEnabled" style="width:auto;">
-        <span class="form-tips" style="margin-left:10px;">Adaptive histogram equalization</span>
-    </div>
-    <div class="clahe-params" style="display:none; margin-left:20px;">
+    <div class="morphology-params" style="display:none; margin-left:20px;">
         <div class="form-row">
-            <label for="node-input-claheClipLimit">Clip Limit</label>
-            <input type="number" id="node-input-claheClipLimit" min="0" step="0.5" style="width:80px;">
+            <label for="node-input-morphologyOperation">Operation</label>
+            <select id="node-input-morphologyOperation" style="width:150px;">
+                <option value="erode">Erode (shrink)</option>
+                <option value="dilate">Dilate (expand)</option>
+                <option value="open">Open (remove noise)</option>
+                <option value="close">Close (fill holes)</option>
+            </select>
         </div>
         <div class="form-row">
-            <label for="node-input-claheTileGridSize">Tile Size</label>
-            <input type="number" id="node-input-claheTileGridSize" min="1" style="width:80px;">
-        </div>
-    </div>
-
-    <hr>
-    <h4>Image Enhancement</h4>
-
-    <div class="form-row">
-        <label for="node-input-sharpenEnabled"><i class="fa fa-diamond"></i> Sharpen</label>
-        <input type="checkbox" id="node-input-sharpenEnabled" style="width:auto;">
-    </div>
-    <div class="sharpen-params" style="display:none; margin-left:20px;">
-        <div class="form-row">
-            <label for="node-input-sharpenStrength">Strength</label>
-            <input type="number" id="node-input-sharpenStrength" min="0" max="5" step="0.1" style="width:80px;">
+            <label for="node-input-morphologyKernel">Kernel Size</label>
+            <input type="number" id="node-input-morphologyKernel" min="1" max="15" style="width:80px;">
+            <span class="form-tips" style="margin-left:10px;">Structuring element size</span>
         </div>
     </div>
 
-    <div class="form-row">
-        <label for="node-input-brightnessContrastEnabled"><i class="fa fa-sun-o"></i> Brightness/Contrast</label>
-        <input type="checkbox" id="node-input-brightnessContrastEnabled" style="width:auto;">
-    </div>
-    <div class="brightness-contrast-params" style="display:none; margin-left:20px;">
-        <div class="form-row">
-            <label for="node-input-brightness">Brightness</label>
-            <input type="number" id="node-input-brightness" min="-100" max="100" style="width:80px;">
-            <span class="form-tips" style="margin-left:10px;">-100 to 100</span>
-        </div>
-        <div class="form-row">
-            <label for="node-input-contrast">Contrast</label>
-            <input type="number" id="node-input-contrast" min="0" max="3" step="0.1" style="width:80px;">
-            <span class="form-tips" style="margin-left:10px;">0.0 to 3.0</span>
-        </div>
-    </div>
+    </div><!-- /preprocess-params-scroll -->
 </script>
 
 <script type="text/html" data-help-name="mv-preprocess">
@@ -365,23 +569,27 @@
     </dl>
 
     <h3>Operations</h3>
-    <p>Operations are applied in a fixed sequence (order matters!):</p>
+    <p>Operations are applied in a fixed sequence optimized for thresholding/segmentation:</p>
     <ol>
-        <li><b>Grayscale</b> - Convert to grayscale</li>
-        <li><b>Gaussian Blur</b> - Reduce noise with Gaussian filter</li>
-        <li><b>Median Blur</b> - Remove salt-pepper noise</li>
-        <li><b>Bilateral Filter</b> - Edge-preserving noise reduction</li>
-        <li><b>Morphology</b> - Erode, Dilate, Open, Close operations</li>
-        <li><b>Threshold</b> - Binary, Otsu, or Adaptive thresholding</li>
-        <li><b>Histogram EQ</b> - Basic histogram equalization</li>
-        <li><b>CLAHE</b> - Contrast Limited Adaptive Histogram Equalization</li>
-        <li><b>Sharpen</b> - Unsharp mask sharpening</li>
-        <li><b>Brightness/Contrast</b> - Adjust brightness and contrast</li>
+        <li><b>Brightness/Contrast</b> - Adjust input levels first</li>
+        <li><b>Grayscale</b> - Convert to single channel (required for threshold)</li>
+        <li><b>Histogram EQ / CLAHE</b> - Enhance contrast (pick one, not both)</li>
+        <li><b>Blur</b> - Reduce noise: Gaussian, Median, or Bilateral (pick one)</li>
+        <li><b>Sharpen</b> - Enhance edges (optional)</li>
+        <li><b>Threshold</b> - Segment image to binary</li>
+        <li><b>Morphology</b> - Clean binary image (post-threshold)</li>
     </ol>
+
+    <h3>Important Notes</h3>
+    <ul>
+        <li><b>Blur methods:</b> Only use ONE blur method (Gaussian, Median, or Bilateral). Combining them doesn't make sense.</li>
+        <li><b>Contrast:</b> Don't use both Histogram EQ and CLAHE together - pick one.</li>
+        <li><b>Morphology:</b> Most useful AFTER thresholding to clean up the binary result.</li>
+    </ul>
 
     <h3>Threshold Methods</h3>
     <ul>
-        <li><b>Binary</b> - Simple threshold at specified value</li>
+        <li><b>Binary</b> - Manual threshold at specified value</li>
         <li><b>Otsu</b> - Automatic threshold detection (best for bimodal images)</li>
         <li><b>Adaptive Mean</b> - Local threshold using mean of neighborhood</li>
         <li><b>Adaptive Gaussian</b> - Local threshold using weighted Gaussian sum</li>
@@ -391,5 +599,5 @@
     <p>This node prepares images for vision detection by applying common preprocessing operations.
     The preprocessed image is stored with a new ID, allowing you to compare original vs. processed results.</p>
 
-    <p><b>Tip:</b> Use the thumbnail preview to see the effect of your preprocessing settings in real-time.</p>
+    <p><b>Tip:</b> Use the live preview to see the effect of your preprocessing settings in real-time.</p>
 </script>

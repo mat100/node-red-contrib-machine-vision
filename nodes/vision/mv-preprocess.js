@@ -76,6 +76,12 @@ module.exports = function(RED) {
                 return done(new Error("No image_id provided"));
             }
 
+            // Publish input image_id for live preview in editor
+            RED.comms.publish('mv-preprocess-preview', {
+                id: node.id,
+                lastImageId: imageId
+            });
+
             // Build preprocessing parameters
             const params = {
                 // Grayscale
