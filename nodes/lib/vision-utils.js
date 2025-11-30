@@ -834,19 +834,7 @@ function buildEdgeDetectParams(config) {
         min_contour_perimeter: 0,
         max_contour_perimeter: 999999,
         max_contours: parseInt(config.maxContours) || CONSTANTS.LIMITS.MAX_CONTOURS,
-        show_centers: true,
-
-        // Preprocessing options
-        blur_enabled: config.blurEnabled || false,
-        blur_kernel: parseInt(config.blurKernel) || defaults.BLUR_KERNEL_SIZE || 5,
-        bilateral_enabled: config.bilateralEnabled || false,
-        bilateral_d: 9, // TODO: Add to constants
-        bilateral_sigma_color: 75,
-        bilateral_sigma_space: 75,
-        morphology_enabled: config.morphologyEnabled || false,
-        morphology_operation: config.morphologyOperation || 'close',
-        morphology_kernel: 3,
-        equalize_enabled: false
+        show_centers: true
     };
 }
 

@@ -419,20 +419,6 @@ describe('vision-utils', function() {
             expect(params).to.have.property('max_contours');
         });
 
-        it('should include preprocessing options', function() {
-            const params = visionUtils.buildEdgeDetectParams({
-                blurEnabled: true,
-                blurKernel: 7,
-                morphologyEnabled: true,
-                morphologyOperation: 'open'
-            });
-
-            expect(params).to.have.property('blur_enabled', true);
-            expect(params).to.have.property('blur_kernel', 7);
-            expect(params).to.have.property('morphology_enabled', true);
-            expect(params).to.have.property('morphology_operation', 'open');
-        });
-
         it('should parse string values to integers', function() {
             const params = visionUtils.buildEdgeDetectParams({
                 cannyLow: '40',

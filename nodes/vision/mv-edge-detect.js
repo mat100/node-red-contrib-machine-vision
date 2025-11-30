@@ -22,13 +22,6 @@ module.exports = function(RED) {
         node.sobelThreshold = config.sobelThreshold || 50;
         node.laplacianThreshold = config.laplacianThreshold || 30;
 
-        // Preprocessing options
-        node.blurEnabled = config.blurEnabled || false;
-        node.blurKernel = config.blurKernel || 5;
-        node.bilateralEnabled = config.bilateralEnabled || false;
-        node.morphologyEnabled = config.morphologyEnabled || false;
-        node.morphologyOperation = config.morphologyOperation || 'close';
-
         // Contour filters
         node.minContourArea = config.minContourArea || 10;
         node.maxContourArea = config.maxContourArea || 100000;
@@ -62,12 +55,7 @@ module.exports = function(RED) {
                     laplacianThreshold: node.laplacianThreshold,
                     minContourArea: node.minContourArea,
                     maxContourArea: node.maxContourArea,
-                    maxContours: node.maxContours,
-                    blurEnabled: node.blurEnabled,
-                    blurKernel: node.blurKernel,
-                    bilateralEnabled: node.bilateralEnabled,
-                    morphologyEnabled: node.morphologyEnabled,
-                    morphologyOperation: node.morphologyOperation
+                    maxContours: node.maxContours
                 })
             };
 

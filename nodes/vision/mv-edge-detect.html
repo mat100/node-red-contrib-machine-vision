@@ -10,11 +10,6 @@
             cannyHigh: {value: 150, validate: RED.validators.number()},
             sobelThreshold: {value: 50, validate: RED.validators.number()},
             laplacianThreshold: {value: 30, validate: RED.validators.number()},
-            blurEnabled: {value: false},
-            blurKernel: {value: 5, validate: RED.validators.number()},
-            bilateralEnabled: {value: false},
-            morphologyEnabled: {value: false},
-            morphologyOperation: {value: "close"},
             minContourArea: {value: 10, validate: RED.validators.number()},
             maxContourArea: {value: 100000, validate: RED.validators.number()},
             maxContours: {value: 20, validate: RED.validators.number()}
@@ -41,23 +36,6 @@
                     $(".sobel-params").show();
                 } else if (method === "laplacian") {
                     $(".laplacian-params").show();
-                }
-            }).trigger('change');
-
-            // Preprocessing toggles
-            $("#node-input-blurEnabled").on('change', function() {
-                if ($(this).is(':checked')) {
-                    $(".blur-params").show();
-                } else {
-                    $(".blur-params").hide();
-                }
-            }).trigger('change');
-
-            $("#node-input-morphologyEnabled").on('change', function() {
-                if ($(this).is(':checked')) {
-                    $(".morphology-params").show();
-                } else {
-                    $(".morphology-params").hide();
                 }
             }).trigger('change');
         }
@@ -119,43 +97,6 @@
     </div>
 
     <hr>
-    <h4>Preprocessing</h4>
-
-    <div class="form-row">
-        <label for="node-input-blurEnabled"><i class="fa fa-adjust"></i> Gaussian Blur</label>
-        <input type="checkbox" id="node-input-blurEnabled" style="width:auto;">
-    </div>
-
-    <div class="blur-params" style="display:none;">
-        <div class="form-row">
-            <label for="node-input-blurKernel">Kernel Size</label>
-            <input type="number" id="node-input-blurKernel" placeholder="5" min="3" max="31" step="2">
-        </div>
-    </div>
-
-    <div class="form-row">
-        <label for="node-input-bilateralEnabled"><i class="fa fa-adjust"></i> Bilateral Filter</label>
-        <input type="checkbox" id="node-input-bilateralEnabled" style="width:auto;">
-        <span class="form-tips" style="width:auto; margin-left:10px;">Edge-preserving blur</span>
-    </div>
-
-    <div class="form-row">
-        <label for="node-input-morphologyEnabled"><i class="fa fa-adjust"></i> Morphology</label>
-        <input type="checkbox" id="node-input-morphologyEnabled" style="width:auto;">
-    </div>
-
-    <div class="morphology-params" style="display:none;">
-        <div class="form-row">
-            <label for="node-input-morphologyOperation">Operation</label>
-            <select id="node-input-morphologyOperation">
-                <option value="close">Close</option>
-                <option value="open">Open</option>
-                <option value="gradient">Gradient</option>
-            </select>
-        </div>
-    </div>
-
-    <hr>
     <h4>Contour Filtering</h4>
 
     <div class="form-row">
@@ -210,21 +151,15 @@
         <li><b>Morphological Gradient</b> - Good for thick edges</li>
     </ul>
 
-    <h3>Preprocessing Options</h3>
-    <ul>
-        <li><b>Gaussian Blur</b> - Reduces noise before edge detection</li>
-        <li><b>Bilateral Filter</b> - Reduces noise while preserving edges</li>
-        <li><b>Morphology</b> - Structural operations to clean up image</li>
-    </ul>
-
     <h3>Details</h3>
     <p>This node detects edges and contours in an image. It can be configured with:</p>
     <ul>
         <li>Different edge detection algorithms</li>
         <li>Region of Interest (ROI) to limit detection area</li>
-        <li>Preprocessing to improve detection quality</li>
         <li>Contour filtering by area and count</li>
     </ul>
+
+    <p><b>Tip:</b> Use the Preprocess node before Edge Detect for noise reduction or image enhancement.</p>
 
     <p>The node adds its detection results to the message chain, allowing multiple
     detection nodes to work on the same image in parallel.</p>
