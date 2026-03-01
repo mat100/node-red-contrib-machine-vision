@@ -24,6 +24,9 @@ describe('Test Image Node (Mock Integration)', function() {
             httpAdmin: {
                 post: sinon.stub(),
                 get: sinon.stub()
+            },
+            util: {
+                cloneMessage: sinon.stub().callsFake(msg => JSON.parse(JSON.stringify(msg)))
             }
         };
 
@@ -180,7 +183,7 @@ describe('Test Image Node (Mock Integration)', function() {
                     expect(msg).to.have.property('test_id', 'test_12345678');
                     expect(msg).to.have.property('test_image_name', 'test.png');
                     expect(msg).to.have.property('processing_time_ms', 5);
-                    expect(msg).to.have.property('thumbnail_base64', 'base64_test_image');
+                    expect(msg.payload).to.have.property('thumbnail', 'base64_test_image');
                     done();
                 } catch (error) {
                     done(error);

@@ -503,13 +503,20 @@ describe('Vision Nodes (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock ROI extract API response
+            // Mock ROI extract API response - VisionResponse format
             nock('http://localhost:8000')
                 .post('/api/image/extract-roi', () => true)
                 .reply(200, {
-                    success: true,
-                    bounding_box: { x: 100, y: 100, width: 200, height: 200 },
-                    thumbnail: 'base64_roi_image',
+                    objects: [{
+                        object_id: 'roi_0',
+                        object_type: 'roi_extract',
+                        bounding_box: { x: 100, y: 100, width: 200, height: 200 },
+                        center: { x: 200, y: 200 },
+                        confidence: 1.0,
+                        area: 40000,
+                        properties: {}
+                    }],
+                    thumbnail_base64: 'base64_roi_image',
                     processing_time_ms: 50
                 });
 
@@ -560,13 +567,20 @@ describe('Vision Nodes (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock ROI extract API response
+            // Mock ROI extract API response - VisionResponse format
             nock('http://localhost:8000')
                 .post('/api/image/extract-roi', () => true)
                 .reply(200, {
-                    success: true,
-                    bounding_box: { x: 150, y: 175, width: 50, height: 75 },
-                    thumbnail: 'base64_roi_relative',
+                    objects: [{
+                        object_id: 'roi_0',
+                        object_type: 'roi_extract',
+                        bounding_box: { x: 150, y: 175, width: 50, height: 75 },
+                        center: { x: 175, y: 212 },
+                        confidence: 1.0,
+                        area: 3750,
+                        properties: {}
+                    }],
+                    thumbnail_base64: 'base64_roi_relative',
                     processing_time_ms: 45
                 });
 
@@ -1135,7 +1149,7 @@ describe('Vision Nodes (Mock Integration)', function() {
                 expect(msg.payload).to.have.property('object_id');
                 expect(msg.payload).to.have.property('confidence');
                 expect(msg).to.have.property('rotation_angle');
-                expect(msg).to.have.property('thumbnail');
+                expect(msg.payload).to.have.property('thumbnail');
                 expect(msg).to.have.property('processing_time_ms');
 
                 // Verify rotation angles

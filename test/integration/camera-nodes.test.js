@@ -20,6 +20,9 @@ describe('Camera Nodes (Mock Integration)', function() {
                 createNode: sinon.stub(),
                 registerType: sinon.stub(),
                 getNode: sinon.stub()
+            },
+            util: {
+                cloneMessage: sinon.stub().callsFake(msg => JSON.parse(JSON.stringify(msg)))
             }
         };
 
@@ -88,18 +91,22 @@ describe('Camera Nodes (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock capture API response - correct endpoint and structure
+            // Mock capture API response - VisionResponse format
             nock('http://localhost:8000')
                 .post('/api/camera/capture')
                 .reply(200, {
-                    success: true,
-                    image_id: 'cam1_456',
+                    objects: [{
+                        object_id: 'cam1_capture_0',
+                        object_type: 'camera_capture',
+                        bounding_box: { x: 0, y: 0, width: 1920, height: 1080 },
+                        center: { x: 960, y: 540 },
+                        confidence: 1.0,
+                        properties: {
+                            camera_id: 'cam1',
+                            image_id: 'cam1_456'
+                        }
+                    }],
                     thumbnail_base64: 'base64_camera_image',
-                    timestamp: '2025-01-01T12:00:00Z',
-                    metadata: {
-                        width: 1920,
-                        height: 1080
-                    },
                     processing_time_ms: 100
                 });
 
@@ -416,18 +423,22 @@ describe('Camera Nodes (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock capture with override camera ID
+            // Mock capture with override camera ID - VisionResponse format
             nock('http://localhost:8000')
                 .post('/api/camera/capture', body => body.camera_id === 'cam_override')
                 .reply(200, {
-                    success: true,
-                    image_id: 'override_123',
+                    objects: [{
+                        object_id: 'override_capture_0',
+                        object_type: 'camera_capture',
+                        bounding_box: { x: 0, y: 0, width: 1920, height: 1080 },
+                        center: { x: 960, y: 540 },
+                        confidence: 1.0,
+                        properties: {
+                            camera_id: 'cam_override',
+                            image_id: 'override_123'
+                        }
+                    }],
                     thumbnail_base64: 'base64_override',
-                    timestamp: '2025-01-01T12:00:00Z',
-                    metadata: {
-                        width: 1920,
-                        height: 1080
-                    },
                     processing_time_ms: 100
                 });
 
@@ -463,12 +474,13 @@ describe('Camera Nodes (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock capture API returning success: false
+            // Mock capture API returning empty objects (capture failure)
             nock('http://localhost:8000')
                 .post('/api/camera/capture')
                 .reply(200, {
-                    success: false,
-                    error: 'Camera capture failed'
+                    objects: [],
+                    thumbnail_base64: null,
+                    processing_time_ms: 0
                 });
 
             const config = {
@@ -483,7 +495,7 @@ describe('Camera Nodes (Mock Integration)', function() {
             const mockDone = sinon.stub().callsFake(function(err) {
                 // Verify error was passed to done
                 expect(err).to.exist;
-                expect(err.message).to.include('Capture failed');
+                expect(err.message).to.include('No objects returned');
                 done();
             });
 
@@ -535,21 +547,23 @@ describe('Camera Nodes (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock import API response - correct endpoint and structure
+            // Mock import API response - VisionResponse format
             nock('http://localhost:8000')
                 .post('/api/image/import')
                 .reply(200, {
-                    success: true,
-                    image_id: 'import_789',
+                    objects: [{
+                        object_id: 'import_0',
+                        object_type: 'image_import',
+                        bounding_box: { x: 0, y: 0, width: 800, height: 600 },
+                        center: { x: 400, y: 300 },
+                        confidence: 1.0,
+                        properties: {
+                            image_id: 'import_789',
+                            file_path: '/tmp/test.jpg',
+                            source: 'file'
+                        }
+                    }],
                     thumbnail_base64: 'base64_imported_image',
-                    timestamp: '2025-01-01T12:00:00Z',
-                    metadata: {
-                        width: 800,
-                        height: 600,
-                        source: 'file',
-                        file_path: '/tmp/test.jpg',
-                        file_size_bytes: 12345
-                    },
                     processing_time_ms: 50
                 });
 
@@ -613,12 +627,13 @@ describe('Camera Nodes (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock API returning success: false
+            // Mock API returning empty objects (import failure)
             nock('http://localhost:8000')
                 .post('/api/image/import')
                 .reply(200, {
-                    success: false,
-                    error: 'Import failed for some reason'
+                    objects: [],
+                    thumbnail_base64: null,
+                    processing_time_ms: 0
                 });
 
             const config = {
@@ -632,7 +647,7 @@ describe('Camera Nodes (Mock Integration)', function() {
             const mockDone = sinon.stub().callsFake(function(err) {
                 // Verify error was passed to done
                 expect(err).to.exist;
-                expect(err.message).to.include('Import failed');
+                expect(err.message).to.include('No objects returned');
                 done();
             });
 
