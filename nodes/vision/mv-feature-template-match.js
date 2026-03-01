@@ -97,14 +97,6 @@ module.exports = function(RED) {
                     // Add metadata in root
                     addMessageMetadata(outputMsg, node, result, 'Feature Template Match');
 
-                    // Add rotation and scale info if available
-                    if (obj.rotation !== null && obj.rotation !== undefined) {
-                        outputMsg.rotation_angle = obj.rotation;
-                    }
-                    if (obj.properties && obj.properties.scale) {
-                        outputMsg.scale = obj.properties.scale;
-                    }
-
                     send(outputMsg);
                 }
 

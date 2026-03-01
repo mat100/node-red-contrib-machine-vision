@@ -30,8 +30,8 @@ const CONSTANTS = require('./constants');
  * @property {boolean} success - Whether the detection succeeded
  * @property {number} processing_time_ms - Backend processing time in milliseconds
  * @property {string} node_name - Display name of the producing node
- * @property {Object} [reference_object] - ArUco reference coordinate system (if set by aruco-reference/aruco-detect)
- * @property {string} [image_id] - New image ID (set by preprocess node when a new image is created)
+ * @property {Object} [reference_object] - ArUco reference coordinate system (set by aruco-reference node)
+ * @property {string} [image_id] - Image ID at root level (set by all source nodes and preprocess)
  */
 
 /**

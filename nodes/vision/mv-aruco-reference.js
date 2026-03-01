@@ -56,8 +56,6 @@ module.exports = function(RED) {
                     width: bbox.width,
                     height: bbox.height
                 };
-            } else if (msg.roi) {
-                roi = msg.roi;
             }
 
             // Prepare mode-specific configuration
@@ -117,8 +115,6 @@ module.exports = function(RED) {
 
                 // Add metadata in root
                 addMessageMetadata(outputMsg, node, result, 'ArUco Reference');
-                outputMsg.markers = result.markers; // Include detected markers for debugging
-
                 // Update status
                 const modeLabel = node.mode === 'single' ? 'single' : 'plane';
                 const countMsg = `${modeLabel}: ${result.markers.length} markers`;

@@ -106,11 +106,6 @@ module.exports = function(RED) {
                     // Add metadata in root
                     addMessageMetadata(outputMsg, node, result, 'Advanced Template Match');
 
-                    // Add rotation info if available
-                    if (obj.rotation !== null && obj.rotation !== undefined) {
-                        outputMsg.rotation_angle = obj.rotation;
-                    }
-
                     send(outputMsg);
                 }
 

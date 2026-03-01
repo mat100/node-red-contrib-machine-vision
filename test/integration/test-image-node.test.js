@@ -180,8 +180,7 @@ describe('Test Image Node (Mock Integration)', function() {
                     expect(msg.payload).to.have.property('object_type', 'test_image_capture');
                     expect(msg.payload.properties).to.have.property('image_id', 'img_abcd1234');
                     expect(msg.payload.properties).to.have.property('test_id', 'test_12345678');
-                    expect(msg).to.have.property('test_id', 'test_12345678');
-                    expect(msg).to.have.property('test_image_name', 'test.png');
+                    expect(msg.payload.properties).to.have.property('test_image_name', 'test.png');
                     expect(msg).to.have.property('processing_time_ms', 5);
                     expect(msg.payload).to.have.property('thumbnail', 'base64_test_image');
                     done();

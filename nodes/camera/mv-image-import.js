@@ -59,6 +59,7 @@ module.exports = function(RED) {
 
                 // Add metadata in root
                 visionUtils.addMessageMetadata(outputMsg, node, result, 'Image Import');
+                outputMsg.image_id = imageId;
 
                 visionUtils.setNodeStatus(node, 'success', `imported: ${imageId.substring(0, 8)}...`);
 

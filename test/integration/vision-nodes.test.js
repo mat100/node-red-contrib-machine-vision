@@ -1148,15 +1148,15 @@ describe('Vision Nodes (Mock Integration)', function() {
                 expect(msg).to.have.property('payload');
                 expect(msg.payload).to.have.property('object_id');
                 expect(msg.payload).to.have.property('confidence');
-                expect(msg).to.have.property('rotation_angle');
+                expect(msg.payload).to.have.property('rotation');
                 expect(msg.payload).to.have.property('thumbnail');
                 expect(msg).to.have.property('processing_time_ms');
 
-                // Verify rotation angles
+                // Verify rotation angles (now in payload.rotation, set by createVisionObjectMessage)
                 if (messageCount === 1) {
-                    expect(msg.rotation_angle).to.equal(45.0);
+                    expect(msg.payload.rotation).to.equal(45.0);
                 } else if (messageCount === 2) {
-                    expect(msg.rotation_angle).to.equal(90.0);
+                    expect(msg.payload.rotation).to.equal(90.0);
                     // Both messages received
                     expect(scope.isDone()).to.be.true;
                     done();

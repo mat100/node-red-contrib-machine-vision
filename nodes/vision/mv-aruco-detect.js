@@ -38,8 +38,6 @@ module.exports = function(RED) {
                     width: bbox.width,
                     height: bbox.height
                 };
-            } else if (msg.roi) {
-                roi = msg.roi;
             }
 
             // Prepare request
@@ -82,25 +80,6 @@ module.exports = function(RED) {
                         msg,
                         RED
                     );
-
-                    // Set reference_object for first marker (primary reference for rotation calculations)
-                    if (i === 0) {
-                        outputMsg.reference_object = {
-                            rotation: obj.rotation,
-                            center: obj.center,
-                            marker_id: obj.properties.marker_id,
-                            object_type: obj.object_type
-                        };
-                    } else {
-                        // Preserve reference_object from first marker
-                        const firstMarker = result.objects[0];
-                        outputMsg.reference_object = {
-                            rotation: firstMarker.rotation,
-                            center: firstMarker.center,
-                            marker_id: firstMarker.properties.marker_id,
-                            object_type: firstMarker.object_type
-                        };
-                    }
 
                     // Add metadata in root
                     addMessageMetadata(outputMsg, node, result, 'ArUco Detection');

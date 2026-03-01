@@ -69,8 +69,9 @@ module.exports = function(RED) {
 
                 // Add metadata in root
                 visionUtils.addMessageMetadata(outputMsg, node, result, 'Test Image');
-                outputMsg.test_id = result.test_id;
-                outputMsg.test_image_name = node.testImageName;
+                outputMsg.image_id = imageId;
+                outputMsg.payload.properties.test_id = result.test_id;
+                outputMsg.payload.properties.test_image_name = node.testImageName;
 
                 visionUtils.setNodeStatus(node, 'success',
                     `captured: ${imageId.substring(0, 8)}...`,

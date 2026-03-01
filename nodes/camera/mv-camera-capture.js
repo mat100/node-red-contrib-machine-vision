@@ -90,8 +90,8 @@ module.exports = function(RED) {
                 // Use camera ID from msg or config
                 const cameraId = msg.cameraId || node.cameraId;
 
-                // Extract ROI from msg.roi if provided
-                const roi = msg.roi || null;
+                // Extract ROI from previous node's bounding_box if provided
+                const roi = msg.payload?.bounding_box || null;
 
                 // Capture image using wrapper
                 const result = await visionUtils.callCameraAPI({
@@ -127,6 +127,7 @@ module.exports = function(RED) {
 
                 // Add metadata in root
                 visionUtils.addMessageMetadata(outputMsg, node, result, 'Camera Capture');
+                outputMsg.image_id = imageId;
 
                 visionUtils.setNodeStatus(node, 'success',
                     `captured: ${imageId.substring(0, 8)}...`,
