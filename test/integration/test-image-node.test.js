@@ -136,7 +136,7 @@ describe('Test Image Node (Mock Integration)', function() {
             };
             RED.nodes.getNode.returns(mockApiConfig);
 
-            // Mock capture API response with VisionResponse structure
+            // Mock capture API response with new VisionResponse structure
             nock('http://localhost:8000')
                 .post('/api/test-image/test_12345678/capture')
                 .reply(200, {
@@ -144,25 +144,19 @@ describe('Test Image Node (Mock Integration)', function() {
                     objects: [{
                         object_id: 'test_test_123',
                         object_type: 'test_image_capture',
-                        bounding_box: {
-                            x: 0,
-                            y: 0,
-                            width: 640,
-                            height: 480
-                        },
-                        center: {
-                            x: 320,
-                            y: 240
-                        },
+                        bbox: { x: 0, y: 0, width: 640, height: 480 },
+                        center: { x: 320, y: 240 },
                         confidence: 1.0,
-                        properties: {
+                        metadata: {
                             test_id: 'test_12345678',
-                            resolution: [640, 480],
-                            image_id: 'img_abcd1234'
-                        }
+                            resolution: [640, 480]
+                        },
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, area: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_test_image',
-                    processing_time_ms: 5
+                    thumbnail: 'base64_test_image',
+                    processing_time_ms: 5,
+                    image: { id: 'img_abcd1234', format: 'jpeg', width: 640, height: 480, source: 'test', timestamp: '2025-01-01T00:00:00Z' }
                 });
 
             const config = {
@@ -178,11 +172,11 @@ describe('Test Image Node (Mock Integration)', function() {
                 try {
                     // Verify VisionObject structure
                     expect(msg.payload).to.have.property('object_type', 'test_image_capture');
-                    expect(msg.payload.properties).to.have.property('image_id', 'img_abcd1234');
-                    expect(msg.payload.properties).to.have.property('test_id', 'test_12345678');
-                    expect(msg.payload.properties).to.have.property('test_image_name', 'test.png');
+                    expect(msg.payload.metadata).to.have.property('test_id', 'test_12345678');
+                    expect(msg.payload.metadata).to.have.property('test_image_name', 'test.png');
                     expect(msg).to.have.property('processing_time_ms', 5);
-                    expect(msg.payload).to.have.property('thumbnail', 'base64_test_image');
+                    expect(msg.image).to.have.property('id', 'img_abcd1234');
+                    expect(msg).to.have.property('thumbnail', 'base64_test_image');
                     done();
                 } catch (error) {
                     done(error);
@@ -282,16 +276,16 @@ describe('Test Image Node (Mock Integration)', function() {
                     objects: [{
                         object_id: 'test_test_123',
                         object_type: 'test_image_capture',
-                        bounding_box: { x: 0, y: 0, width: 640, height: 480 },
+                        bbox: { x: 0, y: 0, width: 640, height: 480 },
                         center: { x: 320, y: 240 },
                         confidence: 1.0,
-                        properties: {
-                            test_id: 'test_12345678',
-                            image_id: 'img_first_capture'
-                        }
+                        metadata: { test_id: 'test_12345678' },
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, area: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_test_image',
-                    processing_time_ms: 5
+                    thumbnail: 'base64_test_image',
+                    processing_time_ms: 5,
+                    image: { id: 'img_first_capture', format: 'jpeg', width: 640, height: 480, source: 'test', timestamp: '2025-01-01T00:00:00Z' }
                 });
 
             nock('http://localhost:8000')
@@ -301,16 +295,16 @@ describe('Test Image Node (Mock Integration)', function() {
                     objects: [{
                         object_id: 'test_test_123',
                         object_type: 'test_image_capture',
-                        bounding_box: { x: 0, y: 0, width: 640, height: 480 },
+                        bbox: { x: 0, y: 0, width: 640, height: 480 },
                         center: { x: 320, y: 240 },
                         confidence: 1.0,
-                        properties: {
-                            test_id: 'test_12345678',
-                            image_id: 'img_second_capture'
-                        }
+                        metadata: { test_id: 'test_12345678' },
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, area: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_test_image',
-                    processing_time_ms: 5
+                    thumbnail: 'base64_test_image',
+                    processing_time_ms: 5,
+                    image: { id: 'img_second_capture', format: 'jpeg', width: 640, height: 480, source: 'test', timestamp: '2025-01-01T00:00:01Z' }
                 });
 
             const config = {
@@ -325,12 +319,12 @@ describe('Test Image Node (Mock Integration)', function() {
             let firstImageId, secondImageId;
 
             const send1 = sinon.stub().callsFake(function(msg) {
-                firstImageId = msg.payload.properties.image_id;
+                firstImageId = msg.image.id;
                 expect(firstImageId).to.equal('img_first_capture');
 
                 // Trigger second capture
                 const send2 = sinon.stub().callsFake(function(msg) {
-                    secondImageId = msg.payload.properties.image_id;
+                    secondImageId = msg.image.id;
                     expect(secondImageId).to.equal('img_second_capture');
                     expect(firstImageId).to.not.equal(secondImageId);
                     done();

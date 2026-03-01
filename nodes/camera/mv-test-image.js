@@ -47,34 +47,31 @@ module.exports = function(RED) {
                     done: done
                 });
 
-                // New VisionResponse format: {objects: [...], thumbnail_base64: "...", processing_time_ms: ..., test_id: "..."}
+                // VisionResponse format: {objects: [...], image: {...}, thumbnail: "...", processing_time_ms: ..., test_id: "..."}
                 if (!result.objects || result.objects.length === 0) {
                     throw new Error('No objects returned from test image capture');
                 }
 
                 // Extract the single VisionObject from the objects array
                 const visionObject = result.objects[0];
-                const imageId = visionObject.properties.image_id;
-                const timestamp = visionUtils.getTimestamp(msg);
 
                 // Create standardized VisionObject message using utility
                 const outputMsg = visionUtils.createVisionObjectMessage(
                     visionObject,
-                    imageId,
-                    timestamp,
-                    result.thumbnail_base64,
+                    result.image,
+                    result.thumbnail,
                     msg,
                     RED
                 );
 
                 // Add metadata in root
-                visionUtils.addMessageMetadata(outputMsg, node, result, 'Test Image');
-                outputMsg.image_id = imageId;
-                outputMsg.payload.properties.test_id = result.test_id;
-                outputMsg.payload.properties.test_image_name = node.testImageName;
+                visionUtils.addMessageMetadata(outputMsg, node, result);
+                outputMsg.topic = msg.topic || 'mv/test/' + node.testId;
+                outputMsg.payload.metadata.test_id = result.test_id;
+                outputMsg.payload.metadata.test_image_name = node.testImageName;
 
                 visionUtils.setNodeStatus(node, 'success',
-                    `captured: ${imageId.substring(0, 8)}...`,
+                    `captured: ${result.image.id.substring(0, 8)}...`,
                     result.processing_time_ms
                 );
 

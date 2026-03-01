@@ -65,7 +65,7 @@ describe('mv-overlay Node (Mock Integration)', function() {
         expect(node.status.called).to.be.true;
     });
 
-    it('should pass through thumbnail from msg.payload.thumbnail', function(done) {
+    it('should pass through thumbnail from msg.thumbnail', function(done) {
         // Initialize the node module and get constructor
         overlayNode(RED);
         const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -88,10 +88,10 @@ describe('mv-overlay Node (Mock Integration)', function() {
             done();
         });
 
-        // Simulate input message with VisionObject payload containing thumbnail
+        // Simulate input message with thumbnail at top level
         const msg = {
+            thumbnail: 'base64_thumbnail_data',
             payload: {
-                thumbnail: 'base64_thumbnail_data',
                 object_type: 'edge_contour'
             }
         };
@@ -154,15 +154,15 @@ describe('mv-overlay Node (Mock Integration)', function() {
         const msg = {
             success: true,
             processing_time_ms: 42,
+            thumbnail: 'thumb_data',
+            image: { id: 'img_123' },
             payload: {
                 object_id: 'obj_1',
                 object_type: 'edge_contour',
-                image_id: 'img_123',
-                thumbnail: 'thumb_data',
-                bounding_box: { x: 0, y: 0, width: 100, height: 100 },
+                bbox: { x: 0, y: 0, width: 100, height: 100 },
                 center: { x: 50, y: 50 },
                 confidence: 0.95,
-                properties: {}
+                metadata: {}
             }
         };
 
@@ -186,8 +186,8 @@ describe('mv-overlay Node (Mock Integration)', function() {
 
         // Simulate input message WITHOUT providing send/done
         const msg = {
+            thumbnail: 'test_thumbnail',
             payload: {
-                thumbnail: 'test_thumbnail',
                 object_type: 'camera_capture'
             }
         };

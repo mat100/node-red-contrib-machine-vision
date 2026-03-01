@@ -98,15 +98,19 @@ describe('Vision Nodes (Mock Integration)', function() {
                 .reply(200, {
                     success: true,
                     objects: [{
+                        object_id: 'match_0',
                         object_type: 'template_match',
-                        bounding_box: { x: 100, y: 200, width: 50, height: 60 },
+                        bbox: { x: 100, y: 200, width: 50, height: 60 },
+                        center: { x: 125, y: 230 },
                         confidence: 0.95,
-                        properties: {
+                        metadata: {
                             template_id: 'tmpl_test',
                             match_method: 'TM_CCOEFF_NORMED'
-                        }
+                        },
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, area: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_result_image',
+                    thumbnail: 'data:image/jpeg;base64,/9j/test',
                     processing_time_ms: 120
                 });
 
@@ -137,7 +141,7 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
-                image_id: 'img_123',
+                image: { id: 'img_123', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' },
                 payload: { timestamp: Date.now() }
             };
 
@@ -187,7 +191,7 @@ describe('Vision Nodes (Mock Integration)', function() {
                 done();
             });
 
-            const msg = { image_id: 'img_123' };
+            const msg = { image: { id: 'img_123', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, send, mockDone);
         });
     });
@@ -224,17 +228,19 @@ describe('Vision Nodes (Mock Integration)', function() {
                     success: true,
                     objects: [
                         {
+                            object_id: 'contour_0',
                             object_type: 'edge_contour',
-                            bounding_box: { x: 10, y: 20, width: 30, height: 40 },
+                            bbox: { x: 10, y: 20, width: 30, height: 40 },
+                            center: { x: 25, y: 40 },
                             confidence: 1.0,
-                            properties: {
-                                area: 1200,
-                                perimeter: 140,
+                            metadata: {
                                 method: 'canny'
-                            }
+                            },
+                            coords: 'image', roi: null, angle: null, real: null,
+                            contour: null, area: 1200, perimeter: 140
                         }
                     ],
-                    thumbnail_base64: 'base64_edges',
+                    thumbnail: 'data:image/jpeg;base64,/9j/edges',
                     processing_time_ms: 150
                 });
 
@@ -262,7 +268,7 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
-                image_id: 'img_456',
+                image: { id: 'img_456', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' },
                 payload: { timestamp: Date.now() }
             };
             inputHandler.call(nodeInstance, msg, send, mockDone);
@@ -299,17 +305,20 @@ describe('Vision Nodes (Mock Integration)', function() {
                     success: true,
                     objects: [
                         {
+                            object_id: 'color_0',
                             object_type: 'color_region',
-                            bounding_box: { x: 50, y: 60, width: 80, height: 90 },
+                            bbox: { x: 50, y: 60, width: 80, height: 90 },
+                            center: { x: 90, y: 105 },
                             confidence: 0.88,
-                            properties: {
+                            metadata: {
                                 color: 'red',
-                                percentage: 65.5,
-                                area: 7200
-                            }
+                                percentage: 65.5
+                            },
+                            coords: 'image', roi: null, angle: null, real: null,
+                            contour: null, area: 7200, perimeter: null
                         }
                     ],
-                    thumbnail_base64: 'base64_color',
+                    thumbnail: 'data:image/jpeg;base64,/9j/color',
                     processing_time_ms: 95
                 });
 
@@ -324,12 +333,12 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const send = sinon.stub().callsFake(function(msg) {
                 expect(msg.payload).to.have.property('object_type', 'color_region');
-                expect(msg.payload.properties).to.have.property('color', 'red');
-                expect(msg.payload.properties.percentage).to.be.greaterThan(50);
+                expect(msg.payload.metadata).to.have.property('color', 'red');
+                expect(msg.payload.metadata.percentage).to.be.greaterThan(50);
                 done();
             });
 
-            const msg = { image_id: 'img_789' };
+            const msg = { image: { id: 'img_789', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, send, () => {});
         });
     });
@@ -364,17 +373,21 @@ describe('Vision Nodes (Mock Integration)', function() {
                     success: true,
                     objects: [
                         {
+                            object_id: 'aruco_0',
                             object_type: 'aruco_marker',
-                            bounding_box: { x: 120, y: 140, width: 100, height: 100 },
+                            bbox: { x: 120, y: 140, width: 100, height: 100 },
+                            center: { x: 170, y: 190 },
                             confidence: 1.0,
-                            properties: {
+                            metadata: {
                                 marker_id: 42,
                                 dictionary: 'DICT_4X4_50',
                                 corners: [[120,140], [220,140], [220,240], [120,240]]
-                            }
+                            },
+                            coords: 'image', roi: null, angle: null, real: null,
+                            contour: null, area: null, perimeter: null
                         }
                     ],
-                    thumbnail_base64: 'base64_aruco',
+                    thumbnail: 'data:image/jpeg;base64,/9j/aruco',
                     processing_time_ms: 110
                 });
 
@@ -388,12 +401,12 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const send = sinon.stub().callsFake(function(msg) {
                 expect(msg.payload).to.have.property('object_type', 'aruco_marker');
-                expect(msg.payload.properties).to.have.property('marker_id', 42);
-                expect(msg.payload.properties).to.have.property('corners');
+                expect(msg.payload.metadata).to.have.property('marker_id', 42);
+                expect(msg.payload.metadata).to.have.property('corners');
                 done();
             });
 
-            const msg = { image_id: 'img_aruco' };
+            const msg = { image: { id: 'img_aruco', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, send, () => {});
         });
     });
@@ -430,17 +443,22 @@ describe('Vision Nodes (Mock Integration)', function() {
                     success: true,
                     objects: [
                         {
-                            rotation: 45.5,  // Direct property, not in properties
+                            object_id: 'rotation_0',
+                            object_type: 'rotation_analysis',
+                            bbox: { x: 100, y: 100, width: 200, height: 200 },
+                            center: { x: 275, y: 310 },
+                            angle: 45.5,
                             confidence: 0.92,
-                            properties: {
+                            metadata: {
                                 method: 'min_area_rect',
                                 angle_range: '0_360',
-                                absolute_angle: 45.5,
-                                center: [275, 310]
-                            }
+                                absolute_angle: 45.5
+                            },
+                            coords: 'image', roi: null, real: null,
+                            contour: null, area: null, perimeter: null
                         }
                     ],
-                    thumbnail_base64: 'base64_rotation',
+                    thumbnail: 'data:image/jpeg;base64,/9j/rotation',
                     processing_time_ms: 130
                 });
 
@@ -455,7 +473,7 @@ describe('Vision Nodes (Mock Integration)', function() {
             const send = sinon.stub().callsFake(function(msg) {
                 try {
                     // rotation-detect modifies the original message, adding rotation info
-                    expect(msg.payload).to.have.property('rotation', 45.5);
+                    expect(msg.payload).to.have.property('angle', 45.5);
                     expect(msg.payload).to.have.property('rotation_confidence', 0.92);
                     done();
                 } catch (err) {
@@ -468,10 +486,11 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
-                image_id: 'img_rotation',
+                image: { id: 'img_rotation', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' },
                 payload: {
                     timestamp: Date.now(),
-                    contour: [[100, 100], [200, 100], [200, 200], [100, 200]] // Required for rotation detect
+                    contour: [[100, 100], [200, 100], [200, 200], [100, 200]], // Required for rotation detect
+                    metadata: {}
                 }
             };
             inputHandler.call(nodeInstance, msg, send, mockDone);
@@ -510,13 +529,15 @@ describe('Vision Nodes (Mock Integration)', function() {
                     objects: [{
                         object_id: 'roi_0',
                         object_type: 'roi_extract',
-                        bounding_box: { x: 100, y: 100, width: 200, height: 200 },
+                        bbox: { x: 100, y: 100, width: 200, height: 200 },
                         center: { x: 200, y: 200 },
                         confidence: 1.0,
                         area: 40000,
-                        properties: {}
+                        metadata: {},
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_roi_image',
+                    thumbnail: 'data:image/jpeg;base64,/9j/roi',
                     processing_time_ms: 50
                 });
 
@@ -531,8 +552,8 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const send = sinon.stub().callsFake(function(msg) {
                 try {
-                    expect(msg.payload).to.have.property('bounding_box');
-                    expect(msg.payload.bounding_box).to.deep.equal({ x: 100, y: 100, width: 200, height: 200 });
+                    expect(msg.payload).to.have.property('bbox');
+                    expect(msg.payload.bbox).to.deep.equal({ x: 100, y: 100, width: 200, height: 200 });
                     expect(msg.payload).to.have.property('center');
                     expect(msg.payload.center.x).to.equal(200); // x + width/2
                     expect(msg.payload.center.y).to.equal(200); // y + height/2
@@ -547,7 +568,7 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
-                image_id: 'img_123',
+                image: { id: 'img_123', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' },
                 payload: {
                     timestamp: Date.now()
                 }
@@ -574,13 +595,15 @@ describe('Vision Nodes (Mock Integration)', function() {
                     objects: [{
                         object_id: 'roi_0',
                         object_type: 'roi_extract',
-                        bounding_box: { x: 150, y: 175, width: 50, height: 75 },
+                        bbox: { x: 150, y: 175, width: 50, height: 75 },
                         center: { x: 175, y: 212 },
                         confidence: 1.0,
                         area: 3750,
-                        properties: {}
+                        metadata: {},
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_roi_relative',
+                    thumbnail: 'data:image/jpeg;base64,/9j/roi_relative',
                     processing_time_ms: 45
                 });
 
@@ -595,7 +618,7 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const send = sinon.stub().callsFake(function(msg) {
                 try {
-                    expect(msg.payload.bounding_box).to.exist;
+                    expect(msg.payload.bbox).to.exist;
                     done();
                 } catch (err) {
                     done(err);
@@ -607,15 +630,15 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
-                image_id: 'img_456',
+                image: { id: 'img_456', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' },
                 payload: {
-                    bounding_box: { x: 100, y: 100, width: 300, height: 300 }
+                    bbox: { x: 100, y: 100, width: 300, height: 300 }
                 }
             };
             inputHandler.call(nodeInstance, msg, send, mockDone);
         });
 
-        it('should handle missing image_id error', function(done) {
+        it('should handle missing image.id error', function(done) {
             roiExtractNode(RED);
             const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
 
@@ -634,7 +657,7 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub().callsFake(function(err) {
                 expect(err).to.exist;
-                expect(err.message).to.include('No image_id');
+                expect(err.message).to.include('image.id');
                 done();
             });
 
@@ -669,9 +692,8 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
-                payload: {
-                    image_id: 'img_789'
-                }
+                image: { id: 'img_789', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' },
+                payload: {}
             };
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
@@ -864,11 +886,11 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const inputHandler = node.on.withArgs('input').getCall(0).args[1];
 
-            const msg = { image_id: 'img_error' };
+            const msg = { image: { id: 'img_error', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, () => {}, () => {});
         });
 
-        it('should handle missing image_id in template-match', function(done) {
+        it('should handle missing image.id in template-match', function(done) {
             const templateMatchNode = require('../../nodes/vision/mv-template-match.js');
             templateMatchNode(RED);
             const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -889,11 +911,11 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub().callsFake(function(err) {
                 expect(err).to.exist;
-                expect(err.message).to.include('No image_id');
+                expect(err.message).to.include('image.id');
                 done();
             });
 
-            const msg = { payload: {} }; // No image_id
+            const msg = { payload: {} }; // No image.id
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
 
@@ -922,11 +944,11 @@ describe('Vision Nodes (Mock Integration)', function() {
                 done();
             });
 
-            const msg = { image_id: 'img_123' };
+            const msg = { image: { id: 'img_123', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
 
-        it('should handle missing image_id in edge-detect', function(done) {
+        it('should handle missing image.id in edge-detect', function(done) {
             const edgeDetectNode = require('../../nodes/vision/mv-edge-detect.js');
             edgeDetectNode(RED);
             const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -947,15 +969,15 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub().callsFake(function(err) {
                 expect(err).to.exist;
-                expect(err.message).to.include('No image_id');
+                expect(err.message).to.include('image.id');
                 done();
             });
 
-            const msg = { payload: {} }; // No image_id
+            const msg = { payload: {} }; // No image.id
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
 
-        it('should handle missing image_id in color-detect', function(done) {
+        it('should handle missing image.id in color-detect', function(done) {
             const colorDetectNode = require('../../nodes/vision/mv-color-detect.js');
             colorDetectNode(RED);
             const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -976,15 +998,15 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub().callsFake(function(err) {
                 expect(err).to.exist;
-                expect(err.message).to.include('No image_id');
+                expect(err.message).to.include('image.id');
                 done();
             });
 
-            const msg = { payload: {} }; // No image_id
+            const msg = { payload: {} }; // No image.id
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
 
-        it('should handle missing image_id in aruco-detect', function(done) {
+        it('should handle missing image.id in aruco-detect', function(done) {
             const arucoDetectNode = require('../../nodes/vision/mv-aruco-detect.js');
             arucoDetectNode(RED);
             const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -1005,15 +1027,15 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub().callsFake(function(err) {
                 expect(err).to.exist;
-                expect(err.message).to.include('No image_id');
+                expect(err.message).to.include('image.id');
                 done();
             });
 
-            const msg = { payload: {} }; // No image_id
+            const msg = { payload: {} }; // No image.id
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
 
-        it('should handle missing image_id in rotation-detect', function(done) {
+        it('should handle missing image.id in rotation-detect', function(done) {
             const rotationDetectNode = require('../../nodes/vision/mv-rotation-detect.js');
             rotationDetectNode(RED);
             const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -1034,11 +1056,11 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub().callsFake(function(err) {
                 expect(err).to.exist;
-                expect(err.message).to.include('No image_id');
+                expect(err.message).to.include('image.id');
                 done();
             });
 
-            const msg = { payload: {} }; // No image_id
+            const msg = { payload: {} }; // No image.id
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
     });
@@ -1099,29 +1121,33 @@ describe('Vision Nodes (Mock Integration)', function() {
                         {
                             object_id: 'match_0',
                             object_type: 'template_match',
-                            bounding_box: { x: 100, y: 100, width: 50, height: 50 },
+                            bbox: { x: 100, y: 100, width: 50, height: 50 },
                             center: { x: 125, y: 125 },
                             confidence: 0.95,
-                            rotation: 45.0,
-                            properties: {
+                            angle: 45.0,
+                            metadata: {
                                 template_id: 'tmpl_test',
                                 rotation_angle: 45.0
-                            }
+                            },
+                            coords: 'image', roi: null, real: null,
+                            contour: null, area: null, perimeter: null
                         },
                         {
                             object_id: 'match_1',
                             object_type: 'template_match',
-                            bounding_box: { x: 200, y: 150, width: 50, height: 50 },
+                            bbox: { x: 200, y: 150, width: 50, height: 50 },
                             center: { x: 225, y: 175 },
                             confidence: 0.88,
-                            rotation: 90.0,
-                            properties: {
+                            angle: 90.0,
+                            metadata: {
                                 template_id: 'tmpl_test',
                                 rotation_angle: 90.0
-                            }
+                            },
+                            coords: 'image', roi: null, real: null,
+                            contour: null, area: null, perimeter: null
                         }
                     ],
-                    thumbnail_base64: 'base64encodedimage',
+                    thumbnail: 'data:image/jpeg;base64,/9j/test',
                     processing_time_ms: 250
                 });
 
@@ -1148,15 +1174,15 @@ describe('Vision Nodes (Mock Integration)', function() {
                 expect(msg).to.have.property('payload');
                 expect(msg.payload).to.have.property('object_id');
                 expect(msg.payload).to.have.property('confidence');
-                expect(msg.payload).to.have.property('rotation');
-                expect(msg.payload).to.have.property('thumbnail');
+                expect(msg.payload).to.have.property('angle');
+                expect(msg).to.have.property('thumbnail');
                 expect(msg).to.have.property('processing_time_ms');
 
-                // Verify rotation angles (now in payload.rotation, set by createVisionObjectMessage)
+                // Verify rotation angles (now in payload.angle, set by createVisionObjectMessage)
                 if (messageCount === 1) {
-                    expect(msg.payload.rotation).to.equal(45.0);
+                    expect(msg.payload.angle).to.equal(45.0);
                 } else if (messageCount === 2) {
-                    expect(msg.payload.rotation).to.equal(90.0);
+                    expect(msg.payload.angle).to.equal(90.0);
                     // Both messages received
                     expect(scope.isDone()).to.be.true;
                     done();
@@ -1165,7 +1191,7 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub();
 
-            const msg = { image_id: 'img_123' };
+            const msg = { image: { id: 'img_123', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, mockSend, mockDone);
         });
 
@@ -1187,7 +1213,7 @@ describe('Vision Nodes (Mock Integration)', function() {
                 .reply(200, {
                     success: true,
                     objects: [],
-                    thumbnail_base64: 'base64encodedimage',
+                    thumbnail: 'data:image/jpeg;base64,/9j/test',
                     processing_time_ms: 150
                 });
 
@@ -1209,7 +1235,7 @@ describe('Vision Nodes (Mock Integration)', function() {
                 done();
             });
 
-            const msg = { image_id: 'img_123' };
+            const msg = { image: { id: 'img_123', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, mockSend, mockDone);
         });
 
@@ -1237,11 +1263,11 @@ describe('Vision Nodes (Mock Integration)', function() {
                 done();
             });
 
-            const msg = { image_id: 'img_123' };
+            const msg = { image: { id: 'img_123', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
 
-        it('should handle missing image_id', function(done) {
+        it('should handle missing image.id', function(done) {
             advancedTemplateMatchNode(RED);
             const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
 
@@ -1261,11 +1287,11 @@ describe('Vision Nodes (Mock Integration)', function() {
 
             const mockDone = sinon.stub().callsFake(function(err) {
                 expect(err).to.exist;
-                expect(err.message).to.include('No image_id');
+                expect(err.message).to.include('image.id');
                 done();
             });
 
-            const msg = { payload: {} }; // No image_id
+            const msg = { payload: {} }; // No image.id
             inputHandler.call(nodeInstance, msg, () => {}, mockDone);
         });
     });

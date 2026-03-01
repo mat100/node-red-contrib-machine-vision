@@ -152,13 +152,13 @@ const CAMERA = {
 const OBJECT_TYPES = {
     CAMERA_CAPTURE: 'camera_capture',
     IMAGE_IMPORT: 'image_import',
-    IMAGE_SIMULATOR: 'image_simulator',
     TEMPLATE_MATCH: 'template_match',
-    EDGE_DETECTION: 'edge_detection',
-    COLOR_DETECTION: 'color_detection',
+    FEATURE_TEMPLATE_MATCH: 'feature_template_match',
+    EDGE_CONTOUR: 'edge_contour',
+    COLOR_REGION: 'color_region',
     ARUCO_MARKER: 'aruco_marker',
-    ROTATION: 'rotation',
-    ROI: 'roi',
+    ROTATION_ANALYSIS: 'rotation_analysis',
+    ROI_EXTRACT: 'roi_extract',
 };
 
 /**

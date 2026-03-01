@@ -46,10 +46,10 @@ module.exports = function(RED) {
             const { valid, imageId } = validateInput(node, msg, done);
             if (!valid) return;
 
-            // Extract ROI from payload.bounding_box (INPUT constraint)
+            // Extract ROI from payload.bbox (INPUT constraint)
             let roi = null;
-            if (msg.payload?.bounding_box) {
-                const bbox = msg.payload.bounding_box;
+            if (msg.payload?.bbox) {
+                const bbox = msg.payload.bbox;
                 roi = {
                     x: bbox.x,
                     y: bbox.y,
@@ -107,14 +107,14 @@ module.exports = function(RED) {
                     done: done
                 });
 
-                // Forward pattern: Clone message, add reference_object, preserve payload
+                // Forward pattern: Clone message, add reference, preserve payload
                 const outputMsg = RED.util.cloneMessage(msg);
 
-                // Add reference_object to message
-                outputMsg.reference_object = result.reference_object;
+                // Add reference to message
+                outputMsg.reference = result.reference;
 
                 // Add metadata in root
-                addMessageMetadata(outputMsg, node, result, 'ArUco Reference');
+                addMessageMetadata(outputMsg, node, result);
                 // Update status
                 const modeLabel = node.mode === 'single' ? 'single' : 'plane';
                 const countMsg = `${modeLabel}: ${result.markers.length} markers`;

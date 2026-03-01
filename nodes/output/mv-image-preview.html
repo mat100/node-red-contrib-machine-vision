@@ -214,12 +214,12 @@
     <dl class="message-properties">
         <dt>Vision Object <span class="property-type">default</span></dt>
         <dd>Displays processed image with overlays from vision nodes.
-            Reads from <code>msg.payload.thumbnail</code> or <code>msg.thumbnail</code>.
-            Downloads full quality using <code>msg.payload.image_id</code>.</dd>
+            Reads from <code>msg.thumbnail</code>.
+            Downloads full quality using <code>msg.image.id</code>.</dd>
 
         <dt>Reference Object</dt>
         <dd>Displays ArUco reference frame visualization from aruco-reference node.
-            Reads from <code>msg.reference_object.thumbnail</code>.
+            Reads from <code>msg.thumbnail</code>.
             Downloads thumbnail quality only.</dd>
     </dl>
 
@@ -233,14 +233,14 @@
 
     <h3>Inputs</h3>
     <dl class="message-properties">
-        <dt>payload.thumbnail <span class="property-type">string</span></dt>
-        <dd>Base64-encoded JPEG thumbnail (for Vision Object mode)</dd>
+        <dt>thumbnail <span class="property-type">string</span></dt>
+        <dd>Base64-encoded JPEG thumbnail (used by both Vision and Reference modes)</dd>
 
-        <dt>payload.image_id <span class="property-type">string</span></dt>
+        <dt>image.id <span class="property-type">string</span></dt>
         <dd>Image UUID for downloading full quality (for Vision Object mode)</dd>
 
-        <dt>reference_object.thumbnail <span class="property-type">string</span></dt>
-        <dd>Base64-encoded reference frame visualization (for Reference Object mode)</dd>
+        <dt>reference <span class="property-type">object</span></dt>
+        <dd>Reference object from aruco-reference node (for Reference Object mode)</dd>
     </dl>
 
     <h3>Outputs</h3>

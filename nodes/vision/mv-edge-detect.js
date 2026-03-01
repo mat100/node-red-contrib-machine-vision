@@ -4,7 +4,6 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         addMessageMetadata,
         callVisionAPI,
-        getTimestamp,
         buildEdgeDetectParams,
         validateInput,
         CONSTANTS
@@ -40,10 +39,10 @@ module.exports = function(RED) {
             if (!valid) return;
 
             // Prepare request with explicit fields using parameter builder
-            // Map bounding_box from previous detection to roi parameter (INPUT constraint)
+            // Map bbox from previous detection to roi parameter (INPUT constraint)
             const requestData = {
                 image_id: imageId,
-                roi: msg.payload?.bounding_box || null,
+                roi: msg.payload?.bbox || null,
                 params: buildEdgeDetectParams({
                     method: node.method,
                     cannyLow: node.cannyLow,
@@ -74,23 +73,20 @@ module.exports = function(RED) {
                 }
 
                 // Send N messages for N objects using utility function
-                const timestamp = getTimestamp(msg);
-
                 for (let i = 0; i < result.objects.length; i++) {
                     const obj = result.objects[i];
 
                     // Use utility to create standardized VisionObject message
                     const outputMsg = createVisionObjectMessage(
                         obj,
-                        imageId,
-                        timestamp,
-                        result.thumbnail_base64,
+                        msg.image,
+                        result.thumbnail,
                         msg,
                         RED
                     );
 
                     // Add metadata in root
-                    addMessageMetadata(outputMsg, node, result, 'Edge Detection');
+                    addMessageMetadata(outputMsg, node, result);
 
                     send(outputMsg);
                 }

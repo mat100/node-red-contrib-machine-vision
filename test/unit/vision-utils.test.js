@@ -109,36 +109,46 @@ describe('vision-utils', function() {
 
     describe('addMessageMetadata', function() {
 
-        it('should set success, processing_time_ms, and node_name', function() {
+        it('should set success and processing_time_ms', function() {
             const outputMsg = {};
             const node = { name: 'My Edge' };
             const result = { processing_time_ms: 42 };
 
-            visionUtils.addMessageMetadata(outputMsg, node, result, 'Edge Detection');
+            visionUtils.addMessageMetadata(outputMsg, node, result);
 
             expect(outputMsg).to.have.property('success', true);
             expect(outputMsg).to.have.property('processing_time_ms', 42);
-            expect(outputMsg).to.have.property('node_name', 'My Edge');
         });
 
-        it('should use defaultName when node.name is empty', function() {
+        it('should default reference to null when undefined', function() {
             const outputMsg = {};
-            const node = { name: '' };
+            const node = { name: 'My Edge' };
             const result = { processing_time_ms: 10 };
 
-            visionUtils.addMessageMetadata(outputMsg, node, result, 'Camera Capture');
+            visionUtils.addMessageMetadata(outputMsg, node, result);
 
-            expect(outputMsg).to.have.property('node_name', 'Camera Capture');
+            expect(outputMsg).to.have.property('reference', null);
         });
 
-        it('should use defaultName when node.name is undefined', function() {
+        it('should default topic to null when undefined', function() {
             const outputMsg = {};
             const node = {};
             const result = { processing_time_ms: 5 };
 
-            visionUtils.addMessageMetadata(outputMsg, node, result, 'ROI Extract');
+            visionUtils.addMessageMetadata(outputMsg, node, result);
 
-            expect(outputMsg).to.have.property('node_name', 'ROI Extract');
+            expect(outputMsg).to.have.property('topic', null);
+        });
+
+        it('should preserve existing reference and topic', function() {
+            const outputMsg = { reference: { origin: [0, 0] }, topic: 'mv/test' };
+            const node = { name: 'Test' };
+            const result = { processing_time_ms: 7 };
+
+            visionUtils.addMessageMetadata(outputMsg, node, result);
+
+            expect(outputMsg.reference).to.deep.equal({ origin: [0, 0] });
+            expect(outputMsg.topic).to.equal('mv/test');
         });
     });
 
@@ -203,32 +213,44 @@ describe('vision-utils', function() {
 
     describe('getImageId', function() {
 
-        it('should extract image_id from root', function() {
-            const msg = { image_id: 'test123' };
+        it('should extract image id from msg.image.id', function() {
+            const msg = { image: { id: 'test123' } };
             expect(visionUtils.getImageId(msg)).to.equal('test123');
         });
 
-        it('should return null when not found', function() {
+        it('should return null when image object is missing', function() {
             const msg = {};
             expect(visionUtils.getImageId(msg)).to.be.null;
         });
 
-        it('should ignore payload.image_id (not canonical)', function() {
-            const msg = { payload: { image_id: 'payload_only' } };
+        it('should return null when image.id is missing', function() {
+            const msg = { image: {} };
+            expect(visionUtils.getImageId(msg)).to.be.null;
+        });
+
+        it('should ignore legacy root image_id', function() {
+            const msg = { image_id: 'legacy123' };
             expect(visionUtils.getImageId(msg)).to.be.null;
         });
     });
 
     describe('getTimestamp', function() {
 
-        it('should extract timestamp from payload', function() {
+        it('should extract timestamp from msg.image.timestamp', function() {
             const ts = '2025-01-01T00:00:00Z';
-            const msg = { payload: { timestamp: ts } };
+            const msg = { image: { timestamp: ts } };
             expect(visionUtils.getTimestamp(msg)).to.equal(ts);
         });
 
-        it('should generate new timestamp when not found', function() {
+        it('should generate new timestamp when image object is missing', function() {
             const msg = {};
+            const result = visionUtils.getTimestamp(msg);
+            expect(result).to.be.a('string');
+            expect(new Date(result).toISOString()).to.equal(result);
+        });
+
+        it('should generate new timestamp when image.timestamp is missing', function() {
+            const msg = { image: {} };
             const result = visionUtils.getTimestamp(msg);
             expect(result).to.be.a('string');
             expect(new Date(result).toISOString()).to.equal(result);
@@ -507,8 +529,8 @@ describe('vision-utils', function() {
             mockDone = sinon.stub();
         });
 
-        it('should return valid with imageId when present', function() {
-            const msg = { image_id: 'test123' };
+        it('should return valid with imageId when image.id is present', function() {
+            const msg = { image: { id: 'test123' } };
             const result = visionUtils.validateInput(mockNode, msg, mockDone);
 
             expect(result.valid).to.be.true;
@@ -516,7 +538,7 @@ describe('vision-utils', function() {
             expect(mockDone.called).to.be.false;
         });
 
-        it('should return invalid when image_id missing', function() {
+        it('should return invalid when image.id is missing', function() {
             const msg = {};
             const result = visionUtils.validateInput(mockNode, msg, mockDone);
 
@@ -525,8 +547,17 @@ describe('vision-utils', function() {
             expect(mockDone.calledOnce).to.be.true;
         });
 
-        it('should reject when image_id only in payload (not canonical)', function() {
-            const msg = { payload: { image_id: 'payload123' } };
+        it('should use correct error message for missing image.id', function() {
+            const msg = {};
+            visionUtils.validateInput(mockNode, msg, mockDone);
+
+            expect(mockNode.error.firstCall.args[0]).to.equal('No image.id provided');
+            const statusCall = mockNode.status.getCall(0).args[0];
+            expect(statusCall.text).to.include('missing image.id');
+        });
+
+        it('should reject when image_id is at root level (legacy format)', function() {
+            const msg = { image_id: 'legacy123' };
             const result = visionUtils.validateInput(mockNode, msg, mockDone);
 
             expect(result.valid).to.be.false;

@@ -4,7 +4,6 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         addMessageMetadata,
         callVisionAPI,
-        getTimestamp,
         validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
@@ -129,10 +128,10 @@ module.exports = function(RED) {
                 contrast: parseFloat(node.contrast)
             };
 
-            // Prepare request - map bounding_box from previous detection to roi parameter
+            // Prepare request - map bbox from previous detection to roi parameter
             const requestData = {
                 image_id: imageId,
-                roi: msg.payload?.bounding_box || null,
+                roi: msg.payload?.bbox || null,
                 params: params
             };
 
@@ -154,30 +153,38 @@ module.exports = function(RED) {
                 }
 
                 const obj = result.objects[0];
-                const timestamp = getTimestamp(msg);
+
+                // Build image info for the new preprocessed image
+                const newImageId = obj.metadata.image_id;
+                const preprocessImageInfo = {
+                    id: newImageId,
+                    format: 'jpeg',
+                    width: obj.bbox?.width || msg.image?.width || 0,
+                    height: obj.bbox?.height || msg.image?.height || 0,
+                    source: 'preprocess',
+                    timestamp: new Date().toISOString()
+                };
 
                 // Use utility to create standardized VisionObject message
                 const outputMsg = createVisionObjectMessage(
                     obj,
-                    obj.properties.image_id,  // Use new preprocessed image_id
-                    timestamp,
-                    result.thumbnail_base64,
+                    preprocessImageInfo,
+                    result.thumbnail,
                     msg,
                     RED
                 );
 
                 // Add preprocessing-specific metadata
-                addMessageMetadata(outputMsg, node, result, 'Preprocess');
-                outputMsg.image_id = obj.properties.image_id;  // New image ID for downstream nodes
-                outputMsg.source_image_id = obj.properties.source_image_id;  // Original image ID
+                addMessageMetadata(outputMsg, node, result);
+                outputMsg.source_image_id = obj.metadata.source_image_id;  // Original image ID
 
                 // Add operations applied to payload
-                outputMsg.payload.operations_applied = obj.properties.operations_applied || [];
+                outputMsg.payload.operations_applied = obj.metadata.operations_applied || [];
 
                 send(outputMsg);
 
                 // Update status with operations count
-                const opsCount = obj.properties.operations_applied?.length || 0;
+                const opsCount = obj.metadata.operations_applied?.length || 0;
                 const statusMsg = opsCount > 0
                     ? `${opsCount} op${opsCount > 1 ? 's' : ''}`
                     : 'no ops';

@@ -4,7 +4,6 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         addMessageMetadata,
         callVisionAPI,
-        getTimestamp,
         validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
@@ -54,7 +53,7 @@ module.exports = function(RED) {
             // Prepare request
             const requestData = {
                 image_id: imageId,
-                roi: msg.payload?.bounding_box || null,
+                roi: msg.payload?.bbox || null,
                 params: {
                     template_id: templateId,
                     method: node.method,
@@ -88,23 +87,20 @@ module.exports = function(RED) {
                 }
 
                 // Send N messages for N objects using utility function
-                const timestamp = getTimestamp(msg);
-
                 for (let i = 0; i < result.objects.length; i++) {
                     const obj = result.objects[i];
 
                     // Use utility to create standardized VisionObject message
                     const outputMsg = createVisionObjectMessage(
                         obj,
-                        imageId,
-                        timestamp,
-                        result.thumbnail_base64,
+                        msg.image,
+                        result.thumbnail,
                         msg,
                         RED
                     );
 
                     // Add metadata in root
-                    addMessageMetadata(outputMsg, node, result, 'Advanced Template Match');
+                    addMessageMetadata(outputMsg, node, result);
 
                     send(outputMsg);
                 }

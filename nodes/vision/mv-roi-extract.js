@@ -46,9 +46,9 @@ module.exports = function(RED) {
                     height: parseInt(node.roi.height) || visionUtils.CONSTANTS.ROI.DEFAULT_HEIGHT
                 };
 
-                if (node.roiMode === visionUtils.CONSTANTS.ROI.MODE_RELATIVE && msg.payload.bounding_box) {
-                    // Relative mode: add ROI offset to existing bounding box
-                    const inputBox = msg.payload.bounding_box;
+                if (node.roiMode === visionUtils.CONSTANTS.ROI.MODE_RELATIVE && msg.payload.bbox) {
+                    // Relative mode: add ROI offset to existing bbox
+                    const inputBox = msg.payload.bbox;
                     bounding_box = {
                         x: inputBox.x + configRoi.x,
                         y: inputBox.y + configRoi.y,
@@ -88,7 +88,7 @@ module.exports = function(RED) {
                     done: done
                 });
 
-                // New VisionResponse format: {objects: [...], thumbnail_base64: "...", processing_time_ms: ...}
+                // VisionResponse format: {objects: [...], thumbnail: "...", processing_time_ms: ...}
                 if (!result.objects || result.objects.length === 0) {
                     throw new Error('No objects returned from ROI extract');
                 }
@@ -98,7 +98,7 @@ module.exports = function(RED) {
                 const processingTime = result.processing_time_ms || 0;
 
                 visionUtils.setNodeStatus(node, 'success',
-                    `ROI extracted: ${visionObject.bounding_box.width}x${visionObject.bounding_box.height}`,
+                    `ROI extracted: ${visionObject.bbox.width}x${visionObject.bbox.height}`,
                     processingTime
                 );
 
@@ -106,13 +106,13 @@ module.exports = function(RED) {
                 const outputMsg = RED.util.cloneMessage(msg);
 
                 // Preserve input VisionObject, only update bbox, center, and thumbnail
-                outputMsg.payload.bounding_box = visionObject.bounding_box;
+                outputMsg.payload.bbox = visionObject.bbox;
                 outputMsg.payload.center = visionObject.center;
-                outputMsg.payload.thumbnail = result.thumbnail_base64;
+                outputMsg.thumbnail = result.thumbnail;
                 outputMsg.payload.area = visionObject.area;
 
                 // Metadata in message root
-                visionUtils.addMessageMetadata(outputMsg, node, result, 'ROI Extract');
+                visionUtils.addMessageMetadata(outputMsg, node, result);
 
                 send(outputMsg);
                 done();

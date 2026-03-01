@@ -40,13 +40,13 @@ module.exports = function(RED) {
             const requestData = {
                 image_id: imageId,
                 contour: contour,
-                roi: msg.payload?.bounding_box || null,  // For visualization context
+                roi: msg.payload?.bbox || null,  // For visualization context
                 params: {
                     method: node.method,
                     angle_range: node.angleRange,
                     asymmetry_orientation: node.asymmetryOrientation
                 },
-                reference_object: msg.reference_object || null  // Pass reference for backend transformation
+                reference: msg.reference || null  // Pass reference for backend transformation
             };
 
             try {
@@ -69,43 +69,45 @@ module.exports = function(RED) {
                 const outputMsg = RED.util.cloneMessage(msg);
 
                 // Update payload with rotation information
-                outputMsg.payload.rotation = obj.rotation;
+                outputMsg.payload.angle = obj.angle;
                 outputMsg.payload.rotation_confidence = obj.confidence;
-                outputMsg.payload.properties = {
-                    ...outputMsg.payload.properties,
-                    rotation_method: obj.properties.method,
-                    rotation_angle_range: obj.properties.angle_range,
-                    absolute_angle: obj.properties.absolute_angle
+                outputMsg.payload.metadata = {
+                    ...outputMsg.payload.metadata,
+                    rotation_method: obj.metadata.method,
+                    rotation_angle_range: obj.metadata.angle_range,
+                    absolute_angle: obj.metadata.absolute_angle
                 };
 
                 // Add thickness_ratio if asymmetry orientation was used
-                if (obj.properties.thickness_ratio !== undefined) {
-                    outputMsg.payload.properties.thickness_ratio = obj.properties.thickness_ratio;
+                if (obj.metadata.thickness_ratio !== undefined) {
+                    outputMsg.payload.metadata.thickness_ratio = obj.metadata.thickness_ratio;
                 }
 
-                // Use backend-calculated plane_rotation and plane_position if available
-                if (obj.plane_rotation !== null && obj.plane_rotation !== undefined) {
-                    outputMsg.payload.plane_rotation = obj.plane_rotation;
+                // Use backend-calculated real-world angle and position if available
+                if (obj.real?.angle !== null && obj.real?.angle !== undefined) {
+                    outputMsg.payload.real = outputMsg.payload.real || {};
+                    outputMsg.payload.real.angle = obj.real.angle;
                 }
-                if (obj.plane_position !== null && obj.plane_position !== undefined) {
-                    outputMsg.payload.plane_position = obj.plane_position;
+                if (obj.real?.center !== null && obj.real?.center !== undefined) {
+                    outputMsg.payload.real = outputMsg.payload.real || {};
+                    outputMsg.payload.real.center = obj.real.center;
                 }
 
                 // Update thumbnail
-                outputMsg.payload.thumbnail = result.thumbnail_base64;
+                outputMsg.thumbnail = result.thumbnail;
 
-                // Preserve reference_object for downstream nodes
-                if (msg.reference_object) {
-                    outputMsg.reference_object = msg.reference_object;
+                // Preserve reference for downstream nodes
+                if (msg.reference) {
+                    outputMsg.reference = msg.reference;
                 }
 
                 // Metadata in root
-                addMessageMetadata(outputMsg, node, result, 'Rotation Detection');
+                addMessageMetadata(outputMsg, node, result);
 
                 // Status message showing absolute and relative angles
-                let statusText = `${obj.rotation.toFixed(1)}°`;
-                if (obj.plane_rotation !== null && obj.plane_rotation !== undefined) {
-                    statusText += ` (ref: ${obj.plane_rotation.toFixed(1)}°)`;
+                let statusText = `${obj.angle.toFixed(1)}°`;
+                if (obj.real?.angle !== null && obj.real?.angle !== undefined) {
+                    statusText += ` (ref: ${obj.real.angle.toFixed(1)}°)`;
                 }
 
                 setNodeStatus(node, 'success', statusText, result.processing_time_ms);

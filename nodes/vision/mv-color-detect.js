@@ -4,7 +4,6 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         addMessageMetadata,
         callVisionAPI,
-        getTimestamp,
         validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
@@ -31,11 +30,11 @@ module.exports = function(RED) {
             const { valid, imageId } = validateInput(node, msg, done);
             if (!valid) return;
 
-            // Get ROI from payload.bounding_box (INPUT constraint from previous detection)
+            // Get ROI from payload.bbox (INPUT constraint from previous detection)
             let roi = null;
             let contour = null;
-            if (msg.payload?.bounding_box) {
-                roi = msg.payload.bounding_box;
+            if (msg.payload?.bbox) {
+                roi = msg.payload.bbox;
                 contour = msg.payload.contour;  // Extract contour from edge detection for precise masking
             } else if (msg.roi) {
                 roi = msg.roi;
@@ -74,25 +73,23 @@ module.exports = function(RED) {
 
                 // Color detection returns exactly 1 object
                 const obj = result.objects[0];
-                const timestamp = getTimestamp(msg);
 
                 // Use utility to create standardized VisionObject message
                 const outputMsg = createVisionObjectMessage(
                     obj,
-                    imageId,
-                    timestamp,
-                    result.thumbnail_base64,
+                    msg.image,
+                    result.thumbnail,
                     msg,
                     RED
                 );
 
                 // Add metadata in root
-                addMessageMetadata(outputMsg, node, result, 'Color Detection');
+                addMessageMetadata(outputMsg, node, result);
 
                 send(outputMsg);
 
                 // Status shows detected color
-                const detectedColor = obj.properties?.dominant_color || 'unknown';
+                const detectedColor = obj.metadata?.dominant_color || 'unknown';
                 setNodeStatus(node, 'success', detectedColor, result.processing_time_ms);
 
                 done();

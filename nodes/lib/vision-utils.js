@@ -11,27 +11,34 @@ const CONSTANTS = require('./constants');
 /**
  * @typedef {Object} VisionObjectMessage
  * @description Standardized Node-RED message produced by all vision nodes.
- * Every vision node outputs messages conforming to this structure.
+ * Fixed structure — all fields always present (null when not applicable).
  *
- * @property {Object} payload - VisionObject payload
+ * @property {string|null} topic - Message topic (e.g., 'mv/camera/test')
+ * @property {Object|null} image - Image metadata
+ * @property {string} image.id - Image identifier
+ * @property {string} image.format - Image format (jpeg, png, bmp)
+ * @property {number} image.width - Image width in pixels
+ * @property {number} image.height - Image height in pixels
+ * @property {string} image.source - Image source (camera, file, test, preprocess)
+ * @property {string} image.timestamp - ISO 8601 timestamp
+ * @property {Object} payload - VisionObject payload (all fields always present)
  * @property {string} payload.object_id - Unique identifier for the detected object
- * @property {string} payload.object_type - Type of detection (e.g., 'edge_contour', 'template_match')
- * @property {string} payload.image_id - Source image identifier
- * @property {string} payload.timestamp - ISO 8601 timestamp
- * @property {Object} payload.bounding_box - Bounding box {x, y, width, height}
- * @property {Object} payload.center - Center point {x, y}
+ * @property {string} payload.object_type - Type of detection
+ * @property {Object|null} payload.roi - Input ROI (null if full image)
  * @property {number} payload.confidence - Detection confidence (0-1)
- * @property {string} payload.thumbnail - Base64-encoded thumbnail image
- * @property {Object} payload.properties - Detection-specific properties
- * @property {number} [payload.area] - Object area in pixels
- * @property {number} [payload.perimeter] - Object perimeter in pixels
- * @property {number} [payload.rotation] - Rotation angle in degrees
- * @property {Array} [payload.contour] - Contour points array
+ * @property {string} payload.coords - Coordinate system ('image' or 'roi')
+ * @property {Object} payload.bbox - Bounding box {x, y, width, height}
+ * @property {Object} payload.center - Center point {x, y}
+ * @property {number|null} payload.angle - Rotation angle in degrees
+ * @property {Object|null} payload.real - Real-world coordinates {center, bbox, angle}
+ * @property {Array|null} payload.contour - Contour points array
+ * @property {number|null} payload.area - Object area in pixels
+ * @property {number|null} payload.perimeter - Object perimeter in pixels
+ * @property {Object} payload.metadata - Detection-specific metadata
+ * @property {Object|null} reference - Reference coordinate system (set by aruco-reference node)
  * @property {boolean} success - Whether the detection succeeded
  * @property {number} processing_time_ms - Backend processing time in milliseconds
- * @property {string} node_name - Display name of the producing node
- * @property {Object} [reference_object] - ArUco reference coordinate system (set by aruco-reference node)
- * @property {string} [image_id] - Image ID at root level (set by all source nodes and preprocess)
+ * @property {string|null} thumbnail - Base64-encoded thumbnail image
  */
 
 /**
@@ -133,45 +140,40 @@ function setNodeStatus(node, statusType, message = null, processingTime = null) 
 /**
  * Create standardized VisionObject message payload
  *
- * Eliminates the duplicated message mapping pattern found across all vision nodes.
+ * Fixed structure — all fields always present (null when not applicable).
+ * Backend returns complete objects with null values, so we map them 1:1.
  *
  * @param {object} obj - Vision object from API response
- * @param {string} imageId - Image ID reference
- * @param {string} timestamp - ISO timestamp
- * @param {string} thumbnail - Base64 thumbnail
+ * @param {object|null} imageInfo - ImageInfo object {id, format, width, height, source, timestamp}
+ * @param {string|null} thumbnail - Base64 thumbnail
  * @param {object} msg - Original message (for cloning)
  * @param {object} RED - Node-RED instance
  * @returns {object} Cloned message with VisionObject in payload
  */
-function createVisionObjectMessage(obj, imageId, timestamp, thumbnail, msg, RED) {
+function createVisionObjectMessage(obj, imageInfo, thumbnail, msg, RED) {
     const outputMsg = RED.util.cloneMessage(msg);
 
-    // Build standardized VisionObject in payload
+    // Payload: fixed structure — all fields always present
     outputMsg.payload = {
         object_id: obj.object_id,
         object_type: obj.object_type,
-        image_id: imageId,
-        timestamp: timestamp,
-        bounding_box: obj.bounding_box,
-        center: obj.center,
+        roi: obj.roi || null,
         confidence: obj.confidence,
-        thumbnail: thumbnail,
-        properties: obj.properties || {}
+        coords: obj.coords || 'image',
+        bbox: obj.bbox,
+        center: obj.center,
+        angle: obj.angle || null,
+        real: obj.real || null,
+        contour: obj.contour || null,
+        area: obj.area || null,
+        perimeter: obj.perimeter || null,
+        metadata: obj.metadata || {}
     };
 
-    // Add optional fields if present
-    if (obj.area !== undefined && obj.area !== null) {
-        outputMsg.payload.area = obj.area;
-    }
-    if (obj.perimeter !== undefined && obj.perimeter !== null) {
-        outputMsg.payload.perimeter = obj.perimeter;
-    }
-    if (obj.rotation !== undefined && obj.rotation !== null) {
-        outputMsg.payload.rotation = obj.rotation;
-    }
-    if (obj.contour !== undefined && obj.contour !== null) {
-        outputMsg.payload.contour = obj.contour;
-    }
+    // Root-level: fixed structure
+    outputMsg.image = imageInfo || null;
+    outputMsg.thumbnail = thumbnail || null;
+    // msg.topic and msg.reference are preserved via cloneMessage()
 
     return outputMsg;
 }
@@ -179,18 +181,23 @@ function createVisionObjectMessage(obj, imageId, timestamp, thumbnail, msg, RED)
 /**
  * Add standard metadata to an output message
  *
- * Replaces the duplicated 3-line pattern (success, processing_time_ms, node_name)
- * found across all vision and camera nodes.
+ * Sets success, processing_time_ms, and ensures reference/topic are present.
  *
  * @param {Object} outputMsg - The output message to annotate
- * @param {Object} node - Node-RED node instance (for node.name)
+ * @param {Object} node - Node-RED node instance
  * @param {Object} result - API response containing processing_time_ms
- * @param {string} defaultName - Fallback name when node.name is not set
  */
-function addMessageMetadata(outputMsg, node, result, defaultName) {
+function addMessageMetadata(outputMsg, node, result) {
     outputMsg.success = true;
     outputMsg.processing_time_ms = result.processing_time_ms;
-    outputMsg.node_name = node.name || defaultName;
+    // reference: preserve from input msg (via cloneMessage), or null
+    if (outputMsg.reference === undefined) {
+        outputMsg.reference = null;
+    }
+    // topic: preserve from input msg (via cloneMessage), or null
+    if (outputMsg.topic === undefined) {
+        outputMsg.topic = null;
+    }
 }
 
 /**
@@ -250,7 +257,12 @@ async function callVisionAPI(options) {
         if (error.response) {
             // API returned error response (4xx, 5xx)
             const status = error.response.status;
-            const detail = error.response.data?.detail || error.response.statusText;
+            const rawDetail = error.response.data?.detail;
+            // detail can be a string or object (from @safe_endpoint's HTTPException)
+            // Extract human-readable message from structured error responses
+            const detail = (typeof rawDetail === 'object' && rawDetail !== null)
+                ? (rawDetail.details || rawDetail.error || JSON.stringify(rawDetail))
+                : (rawDetail || error.response.statusText);
 
             if (status === 404) {
                 errorMessage = `Not found: ${detail}`;
@@ -333,13 +345,13 @@ function validateRequiredFields(msg, requiredFields, node, done) {
 /**
  * Extract image_id from message
  *
- * Canonical location is msg.image_id (set by all source nodes and preprocess).
+ * Canonical location is msg.image.id (set by all source nodes and preprocess).
  *
  * @param {object} msg - Message object
  * @returns {string|null} Image ID or null if not found
  */
 function getImageId(msg) {
-    return msg.image_id || null;
+    return msg.image?.id || null;
 }
 
 /**
@@ -349,7 +361,7 @@ function getImageId(msg) {
  * @returns {string} ISO timestamp
  */
 function getTimestamp(msg) {
-    return msg.payload?.timestamp || new Date().toISOString();
+    return msg.image?.timestamp || new Date().toISOString();
 }
 
 /**
@@ -805,9 +817,9 @@ function clearRateLimit(key) {
 function validateInput(node, msg, done) {
     const imageId = getImageId(msg);
     if (!imageId) {
-        node.error('No image_id provided', msg);
-        setNodeStatus(node, 'error', 'missing image_id');
-        done(new Error('No image_id provided'));
+        node.error('No image.id provided', msg);
+        setNodeStatus(node, 'error', 'missing image.id');
+        done(new Error('No image.id provided'));
         return { valid: false };
     }
     return { valid: true, imageId };

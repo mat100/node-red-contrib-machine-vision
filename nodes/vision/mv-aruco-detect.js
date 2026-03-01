@@ -4,7 +4,6 @@ module.exports = function(RED) {
         createVisionObjectMessage,
         addMessageMetadata,
         callVisionAPI,
-        getTimestamp,
         validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
@@ -28,10 +27,10 @@ module.exports = function(RED) {
             const { valid, imageId } = validateInput(node, msg, done);
             if (!valid) return;
 
-            // Extract ROI from payload.bounding_box (INPUT constraint)
+            // Extract ROI from payload.bbox (INPUT constraint)
             let roi = null;
-            if (msg.payload?.bounding_box) {
-                const bbox = msg.payload.bounding_box;
+            if (msg.payload?.bbox) {
+                const bbox = msg.payload.bbox;
                 roi = {
                     x: bbox.x,
                     y: bbox.y,
@@ -66,23 +65,20 @@ module.exports = function(RED) {
                 }
 
                 // Send N messages for N markers using utility function
-                const timestamp = getTimestamp(msg);
-
                 for (let i = 0; i < result.objects.length; i++) {
                     const obj = result.objects[i];
 
                     // Use utility to create standardized VisionObject message
                     const outputMsg = createVisionObjectMessage(
                         obj,
-                        imageId,
-                        timestamp,
-                        result.thumbnail_base64,
+                        msg.image,
+                        result.thumbnail,
                         msg,
                         RED
                     );
 
                     // Add metadata in root
-                    addMessageMetadata(outputMsg, node, result, 'ArUco Detection');
+                    addMessageMetadata(outputMsg, node, result);
 
                     send(outputMsg);
                 }

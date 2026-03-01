@@ -37,31 +37,28 @@ module.exports = function(RED) {
                     done: done
                 });
 
-                // New VisionResponse format: {objects: [...], thumbnail_base64: "...", processing_time_ms: ...}
+                // VisionResponse format: {objects: [...], image: {...}, thumbnail: "...", processing_time_ms: ...}
                 if (!result.objects || result.objects.length === 0) {
                     throw new Error('No objects returned from import');
                 }
 
                 // Extract the single VisionObject from the objects array
                 const visionObject = result.objects[0];
-                const imageId = visionObject.properties.image_id;
-                const timestamp = visionUtils.getTimestamp(msg);
 
                 // Create standardized VisionObject message using utility
                 const outputMsg = visionUtils.createVisionObjectMessage(
                     visionObject,
-                    imageId,
-                    timestamp,
-                    result.thumbnail_base64,
+                    result.image,
+                    result.thumbnail,
                     msg,
                     RED
                 );
 
                 // Add metadata in root
-                visionUtils.addMessageMetadata(outputMsg, node, result, 'Image Import');
-                outputMsg.image_id = imageId;
+                visionUtils.addMessageMetadata(outputMsg, node, result);
+                outputMsg.topic = msg.topic || 'mv/import';
 
-                visionUtils.setNodeStatus(node, 'success', `imported: ${imageId.substring(0, 8)}...`);
+                visionUtils.setNodeStatus(node, 'success', `imported: ${result.image.id.substring(0, 8)}...`);
 
                 send(outputMsg);
                 done();

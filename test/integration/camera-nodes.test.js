@@ -98,16 +98,18 @@ describe('Camera Nodes (Mock Integration)', function() {
                     objects: [{
                         object_id: 'cam1_capture_0',
                         object_type: 'camera_capture',
-                        bounding_box: { x: 0, y: 0, width: 1920, height: 1080 },
+                        bbox: { x: 0, y: 0, width: 1920, height: 1080 },
                         center: { x: 960, y: 540 },
                         confidence: 1.0,
-                        properties: {
-                            camera_id: 'cam1',
-                            image_id: 'cam1_456'
-                        }
+                        metadata: {
+                            camera_id: 'cam1'
+                        },
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, area: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_camera_image',
-                    processing_time_ms: 100
+                    thumbnail: 'data:image/jpeg;base64,/9j/test',
+                    processing_time_ms: 100,
+                    image: { id: 'cam1_456', format: 'jpeg', width: 1920, height: 1080, source: 'camera', timestamp: '2025-01-01T00:00:00Z' }
                 });
 
             const config = {
@@ -123,8 +125,8 @@ describe('Camera Nodes (Mock Integration)', function() {
             const send = sinon.stub().callsFake(function(msg) {
                 // Verify VisionObject structure
                 expect(msg.payload).to.have.property('object_type');
-                expect(msg.payload).to.have.property('image_id', 'cam1_456');
-                expect(msg.payload.properties).to.have.property('camera_id', 'cam1');
+                expect(msg.image).to.have.property('id', 'cam1_456');
+                expect(msg.payload.metadata).to.have.property('camera_id', 'cam1');
                 done();
             });
 
@@ -430,16 +432,18 @@ describe('Camera Nodes (Mock Integration)', function() {
                     objects: [{
                         object_id: 'override_capture_0',
                         object_type: 'camera_capture',
-                        bounding_box: { x: 0, y: 0, width: 1920, height: 1080 },
+                        bbox: { x: 0, y: 0, width: 1920, height: 1080 },
                         center: { x: 960, y: 540 },
                         confidence: 1.0,
-                        properties: {
-                            camera_id: 'cam_override',
-                            image_id: 'override_123'
-                        }
+                        metadata: {
+                            camera_id: 'cam_override'
+                        },
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, area: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_override',
-                    processing_time_ms: 100
+                    thumbnail: 'data:image/jpeg;base64,/9j/override',
+                    processing_time_ms: 100,
+                    image: { id: 'override_123', format: 'jpeg', width: 1920, height: 1080, source: 'camera', timestamp: '2025-01-01T00:00:00Z' }
                 });
 
             const config = {
@@ -453,7 +457,7 @@ describe('Camera Nodes (Mock Integration)', function() {
 
             const send = sinon.stub().callsFake(function(msg) {
                 // Verify the image was captured
-                expect(msg.payload).to.have.property('image_id', 'override_123');
+                expect(msg.image).to.have.property('id', 'override_123');
                 done();
             });
 
@@ -479,8 +483,9 @@ describe('Camera Nodes (Mock Integration)', function() {
                 .post('/api/camera/capture')
                 .reply(200, {
                     objects: [],
-                    thumbnail_base64: null,
-                    processing_time_ms: 0
+                    thumbnail: null,
+                    processing_time_ms: 0,
+                    image: null
                 });
 
             const config = {
@@ -554,17 +559,19 @@ describe('Camera Nodes (Mock Integration)', function() {
                     objects: [{
                         object_id: 'import_0',
                         object_type: 'image_import',
-                        bounding_box: { x: 0, y: 0, width: 800, height: 600 },
+                        bbox: { x: 0, y: 0, width: 800, height: 600 },
                         center: { x: 400, y: 300 },
                         confidence: 1.0,
-                        properties: {
-                            image_id: 'import_789',
+                        metadata: {
                             file_path: '/tmp/test.jpg',
                             source: 'file'
-                        }
+                        },
+                        coords: 'image', roi: null, angle: null, real: null,
+                        contour: null, area: null, perimeter: null
                     }],
-                    thumbnail_base64: 'base64_imported_image',
-                    processing_time_ms: 50
+                    thumbnail: 'data:image/jpeg;base64,/9j/imported',
+                    processing_time_ms: 50,
+                    image: { id: 'import_789', format: 'jpeg', width: 800, height: 600, source: 'file', timestamp: '2025-01-01T00:00:00Z' }
                 });
 
             const config = {
@@ -578,8 +585,8 @@ describe('Camera Nodes (Mock Integration)', function() {
             const send = sinon.stub().callsFake(function(msg) {
                 // Verify VisionObject structure
                 expect(msg.payload).to.have.property('object_type');
-                expect(msg.payload).to.have.property('image_id', 'import_789');
-                expect(msg.payload.properties).to.have.property('file_path', '/tmp/test.jpg');
+                expect(msg.image).to.have.property('id', 'import_789');
+                expect(msg.payload.metadata).to.have.property('file_path', '/tmp/test.jpg');
                 done();
             });
 
@@ -632,8 +639,9 @@ describe('Camera Nodes (Mock Integration)', function() {
                 .post('/api/image/import')
                 .reply(200, {
                     objects: [],
-                    thumbnail_base64: null,
-                    processing_time_ms: 0
+                    thumbnail: null,
+                    processing_time_ms: 0,
+                    image: null
                 });
 
             const config = {

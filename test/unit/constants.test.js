@@ -152,13 +152,13 @@ describe('constants', function() {
         it('should have all object types defined', function() {
             expect(CONSTANTS.OBJECT_TYPES).to.have.property('CAMERA_CAPTURE');
             expect(CONSTANTS.OBJECT_TYPES).to.have.property('IMAGE_IMPORT');
-            expect(CONSTANTS.OBJECT_TYPES).to.have.property('IMAGE_SIMULATOR');
             expect(CONSTANTS.OBJECT_TYPES).to.have.property('TEMPLATE_MATCH');
-            expect(CONSTANTS.OBJECT_TYPES).to.have.property('EDGE_DETECTION');
-            expect(CONSTANTS.OBJECT_TYPES).to.have.property('COLOR_DETECTION');
+            expect(CONSTANTS.OBJECT_TYPES).to.have.property('FEATURE_TEMPLATE_MATCH');
+            expect(CONSTANTS.OBJECT_TYPES).to.have.property('EDGE_CONTOUR');
+            expect(CONSTANTS.OBJECT_TYPES).to.have.property('COLOR_REGION');
             expect(CONSTANTS.OBJECT_TYPES).to.have.property('ARUCO_MARKER');
-            expect(CONSTANTS.OBJECT_TYPES).to.have.property('ROTATION');
-            expect(CONSTANTS.OBJECT_TYPES).to.have.property('ROI');
+            expect(CONSTANTS.OBJECT_TYPES).to.have.property('ROTATION_ANALYSIS');
+            expect(CONSTANTS.OBJECT_TYPES).to.have.property('ROI_EXTRACT');
         });
 
         it('should be snake_case strings', function() {

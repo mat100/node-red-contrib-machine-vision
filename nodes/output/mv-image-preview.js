@@ -27,11 +27,10 @@ module.exports = function(RED) {
 
                     // Select image source based on configuration
                     if (node.imageSource === 'vision') {
-                        imageData = msg.payload?.thumbnail || msg.thumbnail;
-                        imageId = msg.payload?.image_id || msg.image_id;
+                        imageData = msg.thumbnail;
+                        imageId = msg.image?.id;
                     } else if (node.imageSource === 'reference') {
-                        imageData = msg.reference_object?.thumbnail ||
-                                   msg.payload?.reference_object?.thumbnail;
+                        imageData = msg.thumbnail;
                         // Reference object doesn't have image_id for full download
                         imageId = null;
                     }
