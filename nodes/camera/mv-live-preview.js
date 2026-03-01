@@ -63,7 +63,7 @@ module.exports = function(RED) {
                 return true;
             } catch (error) {
                 const message = error.response?.data?.detail || error.message;
-                visionUtils.setNodeStatus(node, 'error', `Connect failed`);
+                visionUtils.setNodeStatus(node, 'error', 'Connect failed');
                 node.error(`Failed to connect camera ${cameraId}: ${message}`);
                 emitState({
                     streaming: false,
@@ -77,7 +77,7 @@ module.exports = function(RED) {
         // Start stream function
         async function startStream(cameraId) {
             if (!cameraId) {
-                node.error("No camera ID specified");
+                node.error('No camera ID specified');
                 visionUtils.setNodeStatus(node, 'error', 'no camera');
                 return;
             }
@@ -227,5 +227,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-live-preview", MVLivePreviewNode);
+    RED.nodes.registerType('mv-live-preview', MVLivePreviewNode);
 };

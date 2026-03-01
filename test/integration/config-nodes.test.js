@@ -29,7 +29,7 @@ describe('Config Nodes (Mock Integration)', function() {
         };
 
         // Make createNode return our mock node
-        RED.nodes.createNode.callsFake(function(nodeInstance, config) {
+        RED.nodes.createNode.callsFake(function(nodeInstance, _config) {
             Object.assign(nodeInstance, node);
         });
     });

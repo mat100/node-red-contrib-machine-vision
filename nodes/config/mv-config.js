@@ -10,10 +10,10 @@ module.exports = function(RED) {
         // Access via this.credentials.apiKey and this.credentials.apiToken
     }
 
-    RED.nodes.registerType("mv-config", MVConfigNode, {
+    RED.nodes.registerType('mv-config', MVConfigNode, {
         credentials: {
-            apiKey: {type: "text"},
-            apiToken: {type: "password"}
+            apiKey: {type: 'text'},
+            apiToken: {type: 'password'}
         }
     });
-}
+};

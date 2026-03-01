@@ -3,8 +3,8 @@ module.exports = function(RED) {
         setNodeStatus,
         createVisionObjectMessage,
         callVisionAPI,
-        getImageId,
         getTimestamp,
+        validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
 
@@ -21,16 +21,11 @@ module.exports = function(RED) {
         setNodeStatus(node, 'ready');
 
         node.on('input', async function(msg, send, done) {
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
-            // Extract image_id using utility
-            const imageId = getImageId(msg);
-            if (!imageId) {
-                node.error("No image_id provided", msg);
-                setNodeStatus(node, 'error', 'missing image_id');
-                return done(new Error("No image_id provided"));
-            }
+            const { valid, imageId } = validateInput(node, msg, done);
+            if (!valid) return;
 
             // Extract ROI from payload.bounding_box (INPUT constraint)
             let roi = null;
@@ -109,7 +104,7 @@ module.exports = function(RED) {
                     // Add metadata in root
                     outputMsg.success = true;
                     outputMsg.processing_time_ms = result.processing_time_ms;
-                    outputMsg.node_name = node.name || "ArUco Detection";
+                    outputMsg.node_name = node.name || 'ArUco Detection';
 
                     send(outputMsg);
                 }
@@ -133,5 +128,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-aruco-detect", MVArucoDetectNode);
-}
+    RED.nodes.registerType('mv-aruco-detect', MVArucoDetectNode);
+};

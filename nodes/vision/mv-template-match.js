@@ -3,8 +3,8 @@ module.exports = function(RED) {
         setNodeStatus,
         createVisionObjectMessage,
         callVisionAPI,
-        getImageId,
         getTimestamp,
+        validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
 
@@ -29,23 +29,18 @@ module.exports = function(RED) {
         // Process input
         node.on('input', async function(msg, send, done) {
             // For Node-RED 1.0+ compatibility
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
-            // Extract image_id using utility
-            const imageId = getImageId(msg);
-            if (!imageId) {
-                node.error("No image_id provided", msg);
-                setNodeStatus(node, 'error', 'missing image_id');
-                return done(new Error("No image_id provided"));
-            }
+            const { valid, imageId } = validateInput(node, msg, done);
+            if (!valid) return;
 
             // Get template ID
             const templateId = msg.templateId || node.templateId;
             if (!templateId) {
-                node.error("No template_id configured", msg);
+                node.error('No template_id configured', msg);
                 setNodeStatus(node, 'error', 'missing template');
-                return done(new Error("No template_id configured"));
+                return done(new Error('No template_id configured'));
             }
 
             // Prepare request
@@ -98,7 +93,7 @@ module.exports = function(RED) {
                     // Add metadata in root
                     outputMsg.success = true;
                     outputMsg.processing_time_ms = result.processing_time_ms;
-                    outputMsg.node_name = node.name || "Template Match";
+                    outputMsg.node_name = node.name || 'Template Match';
 
                     send(outputMsg);
                 }
@@ -125,28 +120,16 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-template-match", MVTemplateMatchNode);
+    RED.nodes.registerType('mv-template-match', MVTemplateMatchNode);
 
     // HTTP endpoint for uploading template from editor
     // Use multer for handling multipart/form-data
     // Only register if httpAdmin is available (not in test environment)
     if (RED.httpAdmin) {
         const multer = require('multer');
-        const axios = require('axios');
-        const FormData = require('form-data');
-        const fs = require('fs');
         const upload = multer({ dest: '/tmp/' });
 
         RED.httpAdmin.post('/mv-template/upload', upload.single('templateFile'), async function(req, res) {
-        try {
-            // Check if file was uploaded
-            if (!req.file) {
-                return res.status(400).json({ error: 'No file uploaded' });
-            }
-
-            const file = req.file;
-            const templateName = req.body.name || file.originalname.replace(/\.[^/.]+$/, "");
-
             // Get API config from query parameter
             const apiConfigId = req.query.apiConfigId;
             if (!apiConfigId) {
@@ -158,57 +141,24 @@ module.exports = function(RED) {
                 return res.status(400).json({ error: 'Invalid API config' });
             }
 
-            const {apiUrl, headers} = require('../lib/vision-utils').getApiSettings(apiConfig);
+            const templateName = req.file
+                ? (req.body.name || req.file.originalname.replace(/\.[^/.]+$/, ''))
+                : '';
 
-            // Create form data for file upload to backend
-            const formData = new FormData();
-            formData.append('file', fs.createReadStream(file.path), {
-                filename: file.originalname,
-                contentType: file.mimetype
+            await require('../lib/vision-utils').handleFileUpload(req, res, {
+                backendEndpoint: '/api/template/upload',
+                apiConfig: apiConfig,
+                additionalFormFields: {
+                    name: templateName,
+                    description: ''
+                },
+                transformResponse: (data) => ({
+                    success: data.success,
+                    template_id: data.template_id,
+                    name: data.name,
+                    size: data.size
+                })
             });
-            formData.append('name', templateName);
-            formData.append('description', '');
-
-            // Upload to backend
-            const response = await axios.post(
-                `${apiUrl}/api/template/upload`,
-                formData,
-                {
-                    headers: {
-                        ...headers,
-                        ...formData.getHeaders()
-                    }
-                }
-            );
-
-            // Clean up temp file
-            try {
-                fs.unlinkSync(file.path);
-            } catch (e) {
-                // Ignore cleanup errors
-            }
-
-            // Return result to editor
-            res.json({
-                success: response.data.success,
-                template_id: response.data.template_id,
-                name: response.data.name,
-                size: response.data.size
-            });
-
-        } catch (error) {
-            // Clean up temp file on error
-            if (req.file && req.file.path) {
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (e) {
-                    // Ignore cleanup errors
-                }
-            }
-
-            const errorMsg = error.response?.data?.detail || error.message || 'Upload failed';
-            res.status(500).json({ error: errorMsg });
-        }
-    });
+        });
     }
-}
+};

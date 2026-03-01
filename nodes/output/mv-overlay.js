@@ -8,8 +8,8 @@ module.exports = function(RED) {
         visionUtils.setNodeStatus(node, 'ready');
 
         node.on('input', function(msg, send, done) {
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
             // Pass through the thumbnail for display
             if (msg.thumbnail || msg.payload?.thumbnail_base64) {
@@ -21,5 +21,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-overlay", MVOverlayNode);
-}
+    RED.nodes.registerType('mv-overlay', MVOverlayNode);
+};

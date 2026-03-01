@@ -2,8 +2,7 @@ module.exports = function(RED) {
     const {
         setNodeStatus,
         callVisionAPI,
-        getImageId,
-        getTimestamp,
+        validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
 
@@ -17,28 +16,23 @@ module.exports = function(RED) {
         // Configuration
         node.method = config.method || CONSTANTS.ROTATION_DETECT.DEFAULT_METHOD;
         node.angleRange = config.angleRange || CONSTANTS.ROTATION_DETECT.DEFAULT_ANGLE_RANGE;
-        node.asymmetryOrientation = config.asymmetryOrientation || "disabled";
+        node.asymmetryOrientation = config.asymmetryOrientation || 'disabled';
 
         setNodeStatus(node, 'ready');
 
         node.on('input', async function(msg, send, done) {
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
-            // Extract image_id using utility
-            const imageId = getImageId(msg);
-            if (!imageId) {
-                node.error("No image_id provided", msg);
-                setNodeStatus(node, 'error', 'missing image_id');
-                return done(new Error("No image_id provided"));
-            }
+            const { valid, imageId } = validateInput(node, msg, done);
+            if (!valid) return;
 
             // Get contour from message (required input from edge detection)
             const contour = msg.payload?.contour;
             if (!contour || !Array.isArray(contour)) {
-                node.error("No contour found in msg.payload.contour", msg);
+                node.error('No contour found in msg.payload.contour', msg);
                 setNodeStatus(node, 'error', 'missing contour');
-                return done(new Error("No contour found in msg.payload.contour"));
+                return done(new Error('No contour found in msg.payload.contour'));
             }
 
             // Prepare request
@@ -65,11 +59,10 @@ module.exports = function(RED) {
                 });
 
                 if (!result.objects || result.objects.length === 0) {
-                    throw new Error("No rotation analysis result");
+                    throw new Error('No rotation analysis result');
                 }
 
                 const obj = result.objects[0];
-                const timestamp = getTimestamp(msg);
 
                 // Build output message - preserve original payload and add rotation
                 const outputMsg = RED.util.cloneMessage(msg);
@@ -108,7 +101,7 @@ module.exports = function(RED) {
                 // Metadata in root
                 outputMsg.success = true;
                 outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || "Rotation Detection";
+                outputMsg.node_name = node.name || 'Rotation Detection';
 
                 // Status message showing absolute and relative angles
                 let statusText = `${obj.rotation.toFixed(1)}°`;
@@ -134,5 +127,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-rotation-detect", MVRotationDetectNode);
-}
+    RED.nodes.registerType('mv-rotation-detect', MVRotationDetectNode);
+};

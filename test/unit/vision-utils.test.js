@@ -428,5 +428,112 @@ describe('vision-utils', function() {
             expect(params.canny_low).to.equal(40);
             expect(params.max_contours).to.equal(15);
         });
+
+        it('should use MORPH_THRESHOLD and MORPH_KERNEL from constants', function() {
+            const params = visionUtils.buildEdgeDetectParams({});
+
+            expect(params.morph_threshold).to.equal(CONSTANTS.EDGE_DETECT.MORPH_THRESHOLD);
+            expect(params.morph_kernel).to.equal(CONSTANTS.EDGE_DETECT.MORPH_KERNEL);
+        });
+    });
+
+    describe('callVisionAPI', function() {
+
+        const API_URL = 'http://localhost:8000';
+        let mockNode, mockDone;
+
+        beforeEach(function() {
+            mockNode = {
+                error: sinon.stub(),
+                status: sinon.stub(),
+                log: sinon.stub()
+            };
+            mockDone = sinon.stub();
+        });
+
+        it('should set handledByUtils on error', async function() {
+            const apiConfig = {
+                apiUrl: API_URL,
+                timeout: 5000
+            };
+
+            nock(API_URL)
+                .post('/api/vision/edge-detect')
+                .reply(500, { detail: 'Internal error' });
+
+            try {
+                await visionUtils.callVisionAPI({
+                    node: mockNode,
+                    endpoint: '/api/vision/edge-detect',
+                    requestData: { image_id: 'test' },
+                    apiConfig: apiConfig,
+                    done: mockDone
+                });
+                expect.fail('Should have thrown error');
+            } catch (error) {
+                expect(error.handledByUtils).to.be.true;
+                expect(mockDone.calledOnce).to.be.true;
+            }
+        });
+
+        it('should set handledByUtils on network error', async function() {
+            const apiConfig = {
+                apiUrl: 'http://nonexistent:9999',
+                timeout: 1000
+            };
+
+            try {
+                await visionUtils.callVisionAPI({
+                    node: mockNode,
+                    endpoint: '/api/vision/edge-detect',
+                    requestData: { image_id: 'test' },
+                    apiConfig: apiConfig,
+                    done: mockDone
+                });
+                expect.fail('Should have thrown error');
+            } catch (error) {
+                expect(error.handledByUtils).to.be.true;
+                expect(mockDone.calledOnce).to.be.true;
+            }
+        });
+    });
+
+    describe('validateInput', function() {
+
+        let mockNode, mockDone;
+
+        beforeEach(function() {
+            mockNode = {
+                error: sinon.stub(),
+                status: sinon.stub()
+            };
+            mockDone = sinon.stub();
+        });
+
+        it('should return valid with imageId when present', function() {
+            const msg = { image_id: 'test123' };
+            const result = visionUtils.validateInput(mockNode, msg, mockDone);
+
+            expect(result.valid).to.be.true;
+            expect(result.imageId).to.equal('test123');
+            expect(mockDone.called).to.be.false;
+        });
+
+        it('should return invalid when image_id missing', function() {
+            const msg = {};
+            const result = visionUtils.validateInput(mockNode, msg, mockDone);
+
+            expect(result.valid).to.be.false;
+            expect(mockNode.error.calledOnce).to.be.true;
+            expect(mockDone.calledOnce).to.be.true;
+        });
+
+        it('should extract image_id from payload', function() {
+            const msg = { payload: { image_id: 'payload123' } };
+            const result = visionUtils.validateInput(mockNode, msg, mockDone);
+
+            expect(result.valid).to.be.true;
+            expect(result.imageId).to.equal('payload123');
+        });
     });
 });

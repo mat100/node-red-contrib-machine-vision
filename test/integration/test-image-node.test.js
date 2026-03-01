@@ -42,7 +42,7 @@ describe('Test Image Node (Mock Integration)', function() {
         };
 
         // Make createNode return our mock node
-        RED.nodes.createNode.callsFake(function(nodeInstance, config) {
+        RED.nodes.createNode.callsFake(function(nodeInstance, _config) {
             Object.assign(nodeInstance, node);
         });
     });
@@ -170,7 +170,7 @@ describe('Test Image Node (Mock Integration)', function() {
                 testId: 'test_12345678',
                 testImageName: 'test.png'
             };
-            const nodeInstance = new NodeConstructor(config);
+            new NodeConstructor(config);
 
             const inputHandler = node.on.withArgs('input').getCall(0).args[1];
 
@@ -208,7 +208,7 @@ describe('Test Image Node (Mock Integration)', function() {
                 apiConfig: 'mock-api-config',
                 testId: null
             };
-            const nodeInstance = new NodeConstructor(config);
+            new NodeConstructor(config);
 
             const inputHandler = node.on.withArgs('input').getCall(0).args[1];
 
@@ -248,12 +248,12 @@ describe('Test Image Node (Mock Integration)', function() {
                 testId: 'test_12345678',
                 testImageName: 'test.png'
             };
-            const nodeInstance = new NodeConstructor(config);
+            new NodeConstructor(config);
 
             const inputHandler = node.on.withArgs('input').getCall(0).args[1];
 
             const send = sinon.stub();
-            const doneFn = sinon.stub().callsFake(function(error) {
+            const doneFn = sinon.stub().callsFake(function(_error) {
                 // Error is handled by callCameraAPI wrapper
                 // So done might be called without error, but node.status should show error
                 setTimeout(function() {
@@ -319,7 +319,7 @@ describe('Test Image Node (Mock Integration)', function() {
                 testId: 'test_12345678',
                 testImageName: 'test.png'
             };
-            const nodeInstance = new NodeConstructor(config);
+            new NodeConstructor(config);
 
             const inputHandler = node.on.withArgs('input').getCall(0).args[1];
 

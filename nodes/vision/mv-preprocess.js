@@ -3,8 +3,9 @@ module.exports = function(RED) {
         setNodeStatus,
         createVisionObjectMessage,
         callVisionAPI,
-        getImageId,
-        getTimestamp
+        getTimestamp,
+        validateInput,
+        CONSTANTS
     } = require('../lib/vision-utils');
 
     function MVPreprocessNode(config) {
@@ -19,62 +20,57 @@ module.exports = function(RED) {
 
         // Gaussian Blur
         node.gaussianBlurEnabled = config.gaussianBlurEnabled || false;
-        node.gaussianKernel = config.gaussianKernel || 5;
+        node.gaussianKernel = config.gaussianKernel || CONSTANTS.PREPROCESS.GAUSSIAN_KERNEL;
 
         // Median Blur
         node.medianBlurEnabled = config.medianBlurEnabled || false;
-        node.medianKernel = config.medianKernel || 5;
+        node.medianKernel = config.medianKernel || CONSTANTS.PREPROCESS.MEDIAN_KERNEL;
 
         // Bilateral Filter
         node.bilateralEnabled = config.bilateralEnabled || false;
-        node.bilateralD = config.bilateralD || 9;
-        node.bilateralSigmaColor = config.bilateralSigmaColor || 75;
-        node.bilateralSigmaSpace = config.bilateralSigmaSpace || 75;
+        node.bilateralD = config.bilateralD || CONSTANTS.PREPROCESS.BILATERAL_D;
+        node.bilateralSigmaColor = config.bilateralSigmaColor || CONSTANTS.PREPROCESS.BILATERAL_SIGMA_COLOR;
+        node.bilateralSigmaSpace = config.bilateralSigmaSpace || CONSTANTS.PREPROCESS.BILATERAL_SIGMA_SPACE;
 
         // Morphology
         node.morphologyEnabled = config.morphologyEnabled || false;
         node.morphologyOperation = config.morphologyOperation || 'close';
-        node.morphologyKernel = config.morphologyKernel || 3;
+        node.morphologyKernel = config.morphologyKernel || CONSTANTS.PREPROCESS.MORPHOLOGY_KERNEL;
 
         // Threshold
         node.thresholdEnabled = config.thresholdEnabled || false;
         node.thresholdMethod = config.thresholdMethod || 'binary';
-        node.thresholdValue = config.thresholdValue || 127;
-        node.thresholdMaxValue = config.thresholdMaxValue || 255;
-        node.adaptiveBlockSize = config.adaptiveBlockSize || 11;
-        node.adaptiveC = config.adaptiveC || 2;
+        node.thresholdValue = config.thresholdValue || CONSTANTS.PREPROCESS.THRESHOLD_VALUE;
+        node.thresholdMaxValue = config.thresholdMaxValue || CONSTANTS.PREPROCESS.THRESHOLD_MAX;
+        node.adaptiveBlockSize = config.adaptiveBlockSize || CONSTANTS.PREPROCESS.ADAPTIVE_BLOCK_SIZE;
+        node.adaptiveC = config.adaptiveC || CONSTANTS.PREPROCESS.ADAPTIVE_C;
 
         // Histogram Equalization
         node.histEqualizeEnabled = config.histEqualizeEnabled || false;
 
         // CLAHE
         node.claheEnabled = config.claheEnabled || false;
-        node.claheClipLimit = config.claheClipLimit || 2.0;
-        node.claheTileGridSize = config.claheTileGridSize || 8;
+        node.claheClipLimit = config.claheClipLimit || CONSTANTS.PREPROCESS.CLAHE_CLIP_LIMIT;
+        node.claheTileGridSize = config.claheTileGridSize || CONSTANTS.PREPROCESS.CLAHE_TILE_GRID_SIZE;
 
         // Sharpening
         node.sharpenEnabled = config.sharpenEnabled || false;
-        node.sharpenStrength = config.sharpenStrength || 1.0;
+        node.sharpenStrength = config.sharpenStrength || CONSTANTS.PREPROCESS.SHARPEN_STRENGTH;
 
         // Brightness/Contrast
         node.brightnessContrastEnabled = config.brightnessContrastEnabled || false;
-        node.brightness = config.brightness || 0;
-        node.contrast = config.contrast || 1.0;
+        node.brightness = config.brightness || CONSTANTS.PREPROCESS.BRIGHTNESS;
+        node.contrast = config.contrast || CONSTANTS.PREPROCESS.CONTRAST;
 
         // Set initial status
         setNodeStatus(node, 'ready');
 
         node.on('input', async function(msg, send, done) {
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
-            // Extract image_id using utility
-            const imageId = getImageId(msg);
-            if (!imageId) {
-                node.error("No image_id provided", msg);
-                setNodeStatus(node, 'error', 'missing image_id');
-                return done(new Error("No image_id provided"));
-            }
+            const { valid, imageId } = validateInput(node, msg, done);
+            if (!valid) return;
 
             // Publish input image_id for live preview in editor
             RED.comms.publish('mv-preprocess-preview', {
@@ -172,7 +168,7 @@ module.exports = function(RED) {
                 // Add preprocessing-specific metadata
                 outputMsg.success = true;
                 outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || "Preprocess";
+                outputMsg.node_name = node.name || 'Preprocess';
                 outputMsg.image_id = obj.properties.image_id;  // New image ID for downstream nodes
                 outputMsg.source_image_id = obj.properties.source_image_id;  // Original image ID
 
@@ -203,5 +199,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-preprocess", MVPreprocessNode);
-}
+    RED.nodes.registerType('mv-preprocess', MVPreprocessNode);
+};

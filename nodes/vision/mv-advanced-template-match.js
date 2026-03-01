@@ -3,8 +3,8 @@ module.exports = function(RED) {
         setNodeStatus,
         createVisionObjectMessage,
         callVisionAPI,
-        getImageId,
         getTimestamp,
+        validateInput,
         CONSTANTS
     } = require('../lib/vision-utils');
 
@@ -36,23 +36,18 @@ module.exports = function(RED) {
         // Process input
         node.on('input', async function(msg, send, done) {
             // For Node-RED 1.0+ compatibility
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
-            // Extract image_id using utility
-            const imageId = getImageId(msg);
-            if (!imageId) {
-                node.error("No image_id provided", msg);
-                setNodeStatus(node, 'error', 'missing image_id');
-                return done(new Error("No image_id provided"));
-            }
+            const { valid, imageId } = validateInput(node, msg, done);
+            if (!valid) return;
 
             // Get template ID
             const templateId = msg.templateId || node.templateId;
             if (!templateId) {
-                node.error("No template_id configured", msg);
+                node.error('No template_id configured', msg);
                 setNodeStatus(node, 'error', 'missing template');
-                return done(new Error("No template_id configured"));
+                return done(new Error('No template_id configured'));
             }
 
             // Prepare request
@@ -110,7 +105,7 @@ module.exports = function(RED) {
                     // Add metadata in root
                     outputMsg.success = true;
                     outputMsg.processing_time_ms = result.processing_time_ms;
-                    outputMsg.node_name = node.name || "Advanced Template Match";
+                    outputMsg.node_name = node.name || 'Advanced Template Match';
 
                     // Add rotation info if available
                     if (obj.rotation !== null && obj.rotation !== undefined) {
@@ -145,5 +140,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-advanced-template-match", MVAdvancedTemplateMatchNode);
-}
+    RED.nodes.registerType('mv-advanced-template-match', MVAdvancedTemplateMatchNode);
+};

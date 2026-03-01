@@ -12,11 +12,11 @@ const CONSTANTS = require('./constants');
  * Status configuration constants
  */
 const STATUS = {
-    READY: { fill: "grey", shape: "ring", text: "ready" },
-    PROCESSING: { fill: "blue", shape: "dot", text: "processing..." },
-    ERROR: { fill: "red", shape: "dot" },
-    SUCCESS: { fill: "green", shape: "dot" },
-    NO_RESULTS: { fill: "yellow", shape: "ring" }
+    READY: { fill: 'grey', shape: 'ring', text: 'ready' },
+    PROCESSING: { fill: 'blue', shape: 'dot', text: 'processing...' },
+    ERROR: { fill: 'red', shape: 'dot' },
+    SUCCESS: { fill: 'green', shape: 'dot' },
+    NO_RESULTS: { fill: 'yellow', shape: 'ring' }
 };
 
 /**
@@ -67,38 +67,38 @@ function setNodeStatus(node, statusType, message = null, processingTime = null) 
     let status;
 
     switch (statusType) {
-        case 'ready':
-            status = { ...STATUS.READY };
-            break;
-        case 'processing':
-            status = { ...STATUS.PROCESSING };
-            if (message) status.text = message;
-            break;
-        case 'error':
-            status = { ...STATUS.ERROR };
-            status.text = message || "error";
-            break;
-        case 'success':
-            status = { ...STATUS.SUCCESS };
-            if (processingTime !== null) {
-                status.text = message ? `${message} | ${processingTime}ms` : `${processingTime}ms`;
-            } else {
-                status.text = message || "success";
-            }
-            break;
-        case 'no_results':
-            status = { ...STATUS.NO_RESULTS };
-            if (processingTime !== null) {
-                status.text = message ? `${message} | ${processingTime}ms` : `no results | ${processingTime}ms`;
-            } else {
-                status.text = message || "no results";
-            }
-            break;
-        case 'clear':
-            status = {};
-            break;
-        default:
-            status = { fill: "grey", shape: "ring", text: message || "unknown" };
+    case 'ready':
+        status = { ...STATUS.READY };
+        break;
+    case 'processing':
+        status = { ...STATUS.PROCESSING };
+        if (message) status.text = message;
+        break;
+    case 'error':
+        status = { ...STATUS.ERROR };
+        status.text = message || 'error';
+        break;
+    case 'success':
+        status = { ...STATUS.SUCCESS };
+        if (processingTime !== null) {
+            status.text = message ? `${message} | ${processingTime}ms` : `${processingTime}ms`;
+        } else {
+            status.text = message || 'success';
+        }
+        break;
+    case 'no_results':
+        status = { ...STATUS.NO_RESULTS };
+        if (processingTime !== null) {
+            status.text = message ? `${message} | ${processingTime}ms` : `no results | ${processingTime}ms`;
+        } else {
+            status.text = message || 'no results';
+        }
+        break;
+    case 'clear':
+        status = {};
+        break;
+    default:
+        status = { fill: 'grey', shape: 'ring', text: message || 'unknown' };
     }
 
     node.status(status);
@@ -211,16 +211,16 @@ async function callVisionAPI(options) {
 
             if (status === 404) {
                 errorMessage = `Not found: ${detail}`;
-                statusMessage = "not found";
+                statusMessage = 'not found';
             } else if (status === 400) {
                 errorMessage = `Invalid request: ${detail}`;
-                statusMessage = "invalid request";
+                statusMessage = 'invalid request';
             } else if (status === 401 || status === 403) {
                 errorMessage = `Authentication error: ${detail}`;
-                statusMessage = "auth error";
+                statusMessage = 'auth error';
             } else if (status >= 500) {
                 errorMessage = `Server error: ${detail}`;
-                statusMessage = "server error";
+                statusMessage = 'server error';
             } else {
                 errorMessage = `API error (${status}): ${detail}`;
                 statusMessage = `error ${status}`;
@@ -228,15 +228,15 @@ async function callVisionAPI(options) {
         } else if (error.request) {
             // Network error - no response received
             errorMessage = `Network error: Cannot reach API at ${url}`;
-            statusMessage = "network error";
+            statusMessage = 'network error';
         } else if (error.code === 'ECONNABORTED') {
             // Timeout
             errorMessage = `Timeout: Request took longer than ${timeout}ms`;
-            statusMessage = "timeout";
+            statusMessage = 'timeout';
         } else {
             // Other error
             errorMessage = `Error: ${error.message}`;
-            statusMessage = "error";
+            statusMessage = 'error';
         }
 
         // Update node status and log error
@@ -247,6 +247,9 @@ async function callVisionAPI(options) {
         if (done) {
             done(new Error(errorMessage));
         }
+
+        // Mark error as handled so nodes don't double-call done()
+        error.handledByUtils = true;
 
         throw error;
     }
@@ -775,6 +778,118 @@ function clearRateLimit(key) {
 }
 
 /**
+ * Validate input message has image_id and return it
+ *
+ * Replaces the 5-line validation pattern duplicated across 9 vision nodes.
+ *
+ * @param {object} node - Node-RED node instance
+ * @param {object} msg - Input message
+ * @param {function} done - Node-RED done callback
+ * @returns {object} { valid: true, imageId } or { valid: false }
+ */
+function validateInput(node, msg, done) {
+    const imageId = getImageId(msg);
+    if (!imageId) {
+        node.error('No image_id provided', msg);
+        setNodeStatus(node, 'error', 'missing image_id');
+        done(new Error('No image_id provided'));
+        return { valid: false };
+    }
+    return { valid: true, imageId };
+}
+
+/**
+ * File Upload Helper
+ */
+
+/**
+ * Handle file upload from Node-RED editor to backend API
+ *
+ * Encapsulates: file validation → FormData → axios POST → temp cleanup → error handling.
+ *
+ * @param {object} req - Express request (with multer-parsed req.file)
+ * @param {object} res - Express response
+ * @param {object} options - Upload options
+ * @param {string} options.backendEndpoint - Backend API path (e.g., '/api/test-image/upload')
+ * @param {object} options.apiConfig - MV config node instance
+ * @param {object} [options.additionalFormFields={}] - Extra fields to append to FormData
+ * @param {function} [options.transformResponse] - Transform response.data before sending to client
+ */
+async function handleFileUpload(req, res, options) {
+    const {
+        backendEndpoint,
+        apiConfig,
+        additionalFormFields = {},
+        transformResponse
+    } = options;
+
+    const FormData = require('form-data');
+    const fs = require('fs');
+
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const file = req.file;
+        const { apiUrl, headers } = getApiSettings(apiConfig);
+
+        // Build multipart form data
+        const formData = new FormData();
+        formData.append('file', fs.createReadStream(file.path), {
+            filename: file.originalname,
+            contentType: file.mimetype
+        });
+
+        for (const [key, value] of Object.entries(additionalFormFields)) {
+            formData.append(key, value);
+        }
+
+        // POST to backend
+        const response = await axios.post(
+            `${apiUrl}${backendEndpoint}`,
+            formData,
+            {
+                headers: {
+                    ...headers,
+                    ...formData.getHeaders()
+                }
+            }
+        );
+
+        // Clean up temp file
+        try {
+            fs.unlinkSync(file.path);
+        } catch (_e) {
+            // Ignore cleanup errors
+        }
+
+        // Transform and send response
+        const result = transformResponse
+            ? transformResponse(response.data, file)
+            : response.data;
+
+        res.json(result);
+
+    } catch (error) {
+        // Clean up temp file on error
+        if (req.file && req.file.path) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (_e) {
+                // Ignore cleanup errors
+            }
+        }
+
+        const errorMsg = error.response?.data?.detail || error.message || 'Upload failed';
+        res.status(500).json({
+            error: errorMsg,
+            details: error.response ? error.response.data : null
+        });
+    }
+}
+
+/**
  * Parameter Builders
  */
 
@@ -825,8 +940,8 @@ function buildEdgeDetectParams(config) {
         scharr_threshold: defaults.SCHARR_THRESHOLD,
 
         // Morphological gradient parameters
-        morph_threshold: 30, // TODO: Add to constants
-        morph_kernel: 3,
+        morph_threshold: defaults.MORPH_THRESHOLD,
+        morph_kernel: defaults.MORPH_KERNEL,
 
         // Contour filtering parameters
         min_contour_area: parseInt(config.minContourArea) || CONSTANTS.LIMITS.MIN_CONTOUR_AREA,
@@ -875,6 +990,12 @@ module.exports = {
     // Rate Limiting
     checkRateLimit,
     clearRateLimit,
+
+    // Input Validation Shortcut
+    validateInput,
+
+    // File Upload
+    handleFileUpload,
 
     // Parameter Builders
     buildEdgeDetectParams,

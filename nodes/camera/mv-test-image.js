@@ -1,7 +1,5 @@
 module.exports = function(RED) {
     const axios = require('axios');
-    const FormData = require('form-data');
-    const fs = require('fs');
     const visionUtils = require('../lib/vision-utils');
 
     function MVTestImageNode(config) {
@@ -25,8 +23,8 @@ module.exports = function(RED) {
         // Capture test image on input (trigger)
         node.on('input', async function(msg, send, done) {
             // For Node-RED 1.0+ compatibility
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
             // Check if test image is configured
             if (!node.testId) {
@@ -74,7 +72,7 @@ module.exports = function(RED) {
                 outputMsg.processing_time_ms = result.processing_time_ms;
                 outputMsg.test_id = result.test_id;
                 outputMsg.test_image_name = node.testImageName;
-                outputMsg.node_name = node.name || "Test Image";
+                outputMsg.node_name = node.name || 'Test Image';
 
                 visionUtils.setNodeStatus(node, 'success',
                     `captured: ${imageId.substring(0, 8)}...`,
@@ -100,7 +98,7 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-test-image", MVTestImageNode);
+    RED.nodes.registerType('mv-test-image', MVTestImageNode);
 
     // HTTP endpoint for uploading test image from editor
     // Use multer for handling multipart/form-data
@@ -115,65 +113,17 @@ module.exports = function(RED) {
             return res.status(404).json({ error: 'Node not found' });
         }
 
-        try {
-            // Check if file was uploaded
-            if (!req.file) {
-                return res.status(400).json({ error: 'No file uploaded' });
-            }
-
-            const file = req.file;
-            const {apiUrl, headers} = visionUtils.getApiSettings(node.apiConfig);
-
-            // Create form data for file upload
-            const formData = new FormData();
-            formData.append('file', fs.createReadStream(file.path), {
-                filename: file.originalname,
-                contentType: file.mimetype
-            });
-
-            // Upload to backend
-            const response = await axios.post(
-                `${apiUrl}/api/test-image/upload`,
-                formData,
-                {
-                    headers: {
-                        ...headers,
-                        ...formData.getHeaders()
-                    }
-                }
-            );
-
-            // Clean up temp file
-            try {
-                fs.unlinkSync(file.path);
-            } catch (e) {
-                // Ignore cleanup errors
-            }
-
-            // Return test_id to editor
-            res.json({
+        await visionUtils.handleFileUpload(req, res, {
+            backendEndpoint: '/api/test-image/upload',
+            apiConfig: node.apiConfig,
+            transformResponse: (data) => ({
                 success: true,
-                test_id: response.data.test_id,
-                filename: response.data.filename,
-                width: response.data.size.width,
-                height: response.data.size.height
-            });
-
-        } catch (error) {
-            // Clean up temp file on error
-            if (req.file && req.file.path) {
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (e) {
-                    // Ignore cleanup errors
-                }
-            }
-
-            res.status(500).json({
-                error: error.message || 'Upload failed',
-                details: error.response ? error.response.data : null
-            });
-        }
+                test_id: data.test_id,
+                filename: data.filename,
+                width: data.size.width,
+                height: data.size.height
+            })
+        });
     });
 
     // HTTP endpoint for listing test images
@@ -211,4 +161,4 @@ module.exports = function(RED) {
             });
         }
     });
-}
+};

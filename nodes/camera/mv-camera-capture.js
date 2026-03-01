@@ -81,8 +81,8 @@ module.exports = function(RED) {
         // Capture image on input
         node.on('input', async function(msg, send, done) {
             // For Node-RED 1.0+ compatibility
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
             visionUtils.setNodeStatus(node, 'processing', visionUtils.CONSTANTS.STATUS_TEXT.CAPTURING);
 
@@ -128,7 +128,7 @@ module.exports = function(RED) {
                 // Add metadata in root
                 outputMsg.success = true;
                 outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || "Camera Capture";
+                outputMsg.node_name = node.name || 'Camera Capture';
 
                 visionUtils.setNodeStatus(node, 'success',
                     `captured: ${imageId.substring(0, 8)}...`,
@@ -163,5 +163,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-camera-capture", MVCameraCaptureNode);
-}
+    RED.nodes.registerType('mv-camera-capture', MVCameraCaptureNode);
+};

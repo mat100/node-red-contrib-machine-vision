@@ -62,6 +62,10 @@ const EDGE_DETECT = {
     SCHARR_SCALE: 1.0,
     SCHARR_DELTA: 0.0,
 
+    // Morphological gradient defaults
+    MORPH_THRESHOLD: 30,
+    MORPH_KERNEL: 3,
+
     // Post-processing defaults
     DILATE_ITERATIONS: 0,
     ERODE_ITERATIONS: 0,
@@ -158,6 +162,27 @@ const OBJECT_TYPES = {
 };
 
 /**
+ * Preprocessing Defaults
+ */
+const PREPROCESS = {
+    GAUSSIAN_KERNEL: 5,
+    MEDIAN_KERNEL: 5,
+    BILATERAL_D: 9,
+    BILATERAL_SIGMA_COLOR: 75,
+    BILATERAL_SIGMA_SPACE: 75,
+    MORPHOLOGY_KERNEL: 3,
+    THRESHOLD_VALUE: 127,
+    THRESHOLD_MAX: 255,
+    ADAPTIVE_BLOCK_SIZE: 11,
+    ADAPTIVE_C: 2,
+    CLAHE_CLIP_LIMIT: 2.0,
+    CLAHE_TILE_GRID_SIZE: 8,
+    SHARPEN_STRENGTH: 1.0,
+    BRIGHTNESS: 0,
+    CONTRAST: 1.0,
+};
+
+/**
  * Status Text Constants
  */
 const STATUS_TEXT = {
@@ -204,6 +229,7 @@ module.exports = {
     SIMULATOR,
     CAMERA,
     OBJECT_TYPES,
+    PREPROCESS,
     STATUS_TEXT,
     LIMITS,
 };

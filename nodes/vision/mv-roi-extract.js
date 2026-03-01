@@ -20,14 +20,14 @@ module.exports = function(RED) {
         visionUtils.setNodeStatus(node, 'ready');
 
         node.on('input', async function(msg, send, done) {
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
             try {
                 // Get and validate image_id from message payload
                 const imageId = msg.payload?.image_id;
                 if (!imageId) {
-                    throw new Error("No image_id in msg.payload");
+                    throw new Error('No image_id in msg.payload');
                 }
 
                 // Validate image ID for security
@@ -116,7 +116,7 @@ module.exports = function(RED) {
                 // Metadata in message root
                 msg.success = true;
                 msg.processing_time_ms = processingTime;
-                msg.node_name = node.name || "ROI Extract";
+                msg.node_name = node.name || 'ROI Extract';
 
                 send(msg);
                 done();
@@ -135,5 +135,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-roi-extract", MVROIExtractNode);
-}
+    RED.nodes.registerType('mv-roi-extract', MVROIExtractNode);
+};

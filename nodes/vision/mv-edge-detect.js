@@ -3,9 +3,10 @@ module.exports = function(RED) {
         setNodeStatus,
         createVisionObjectMessage,
         callVisionAPI,
-        getImageId,
         getTimestamp,
-        buildEdgeDetectParams
+        buildEdgeDetectParams,
+        validateInput,
+        CONSTANTS
     } = require('../lib/vision-utils');
 
     function MVEdgeDetectNode(config) {
@@ -20,7 +21,7 @@ module.exports = function(RED) {
         node.cannyLow = config.cannyLow || 50;
         node.cannyHigh = config.cannyHigh || 150;
         node.sobelThreshold = config.sobelThreshold || 50;
-        node.laplacianThreshold = config.laplacianThreshold || 30;
+        node.laplacianThreshold = config.laplacianThreshold || CONSTANTS.EDGE_DETECT.LAPLACIAN_THRESHOLD;
 
         // Contour filters
         node.minContourArea = config.minContourArea || 10;
@@ -31,16 +32,11 @@ module.exports = function(RED) {
         setNodeStatus(node, 'ready');
 
         node.on('input', async function(msg, send, done) {
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
-            // Extract image_id using utility
-            const imageId = getImageId(msg);
-            if (!imageId) {
-                node.error("No image_id provided", msg);
-                setNodeStatus(node, 'error', 'missing image_id');
-                return done(new Error("No image_id provided"));
-            }
+            const { valid, imageId } = validateInput(node, msg, done);
+            if (!valid) return;
 
             // Prepare request with explicit fields using parameter builder
             // Map bounding_box from previous detection to roi parameter (INPUT constraint)
@@ -95,7 +91,7 @@ module.exports = function(RED) {
                     // Add metadata in root
                     outputMsg.success = true;
                     outputMsg.processing_time_ms = result.processing_time_ms;
-                    outputMsg.node_name = node.name || "Edge Detection";
+                    outputMsg.node_name = node.name || 'Edge Detection';
 
                     send(outputMsg);
                 }
@@ -119,5 +115,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-edge-detect", MVEdgeDetectNode);
-}
+    RED.nodes.registerType('mv-edge-detect', MVEdgeDetectNode);
+};

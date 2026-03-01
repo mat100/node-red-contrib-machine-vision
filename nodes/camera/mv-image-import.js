@@ -1,5 +1,4 @@
 module.exports = function(RED) {
-    const axios = require('axios');
     const visionUtils = require('../lib/vision-utils');
 
     function MVImageImportNode(config) {
@@ -16,8 +15,8 @@ module.exports = function(RED) {
         // Import image on input
         node.on('input', async function(msg, send, done) {
             // For Node-RED 1.0+ compatibility
-            send = send || function() { node.send.apply(node, arguments) };
-            done = done || function(err) { if(err) node.error(err, msg) };
+            send = send || function() { node.send.apply(node, arguments); };
+            done = done || function(err) { if(err) node.error(err, msg); };
 
             visionUtils.setNodeStatus(node, 'processing', visionUtils.CONSTANTS.STATUS_TEXT.IMPORTING);
 
@@ -61,7 +60,7 @@ module.exports = function(RED) {
                 // Add metadata in root
                 outputMsg.success = true;
                 outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || "Image Import";
+                outputMsg.node_name = node.name || 'Image Import';
 
                 visionUtils.setNodeStatus(node, 'success', `imported: ${imageId.substring(0, 8)}...`);
 
@@ -79,5 +78,5 @@ module.exports = function(RED) {
         });
     }
 
-    RED.nodes.registerType("mv-image-import", MVImageImportNode);
-}
+    RED.nodes.registerType('mv-image-import', MVImageImportNode);
+};
