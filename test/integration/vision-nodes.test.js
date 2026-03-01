@@ -547,8 +547,8 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
+                image_id: 'img_123',
                 payload: {
-                    image_id: 'img_123',
                     timestamp: Date.now()
                 }
             };
@@ -607,8 +607,8 @@ describe('Vision Nodes (Mock Integration)', function() {
             });
 
             const msg = {
+                image_id: 'img_456',
                 payload: {
-                    image_id: 'img_456',
                     bounding_box: { x: 100, y: 100, width: 300, height: 300 }
                 }
             };

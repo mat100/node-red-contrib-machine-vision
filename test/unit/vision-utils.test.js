@@ -208,22 +208,14 @@ describe('vision-utils', function() {
             expect(visionUtils.getImageId(msg)).to.equal('test123');
         });
 
-        it('should extract image_id from payload', function() {
-            const msg = { payload: { image_id: 'test456' } };
-            expect(visionUtils.getImageId(msg)).to.equal('test456');
-        });
-
         it('should return null when not found', function() {
             const msg = {};
             expect(visionUtils.getImageId(msg)).to.be.null;
         });
 
-        it('should prefer root over payload', function() {
-            const msg = {
-                image_id: 'root',
-                payload: { image_id: 'payload' }
-            };
-            expect(visionUtils.getImageId(msg)).to.equal('root');
+        it('should ignore payload.image_id (not canonical)', function() {
+            const msg = { payload: { image_id: 'payload_only' } };
+            expect(visionUtils.getImageId(msg)).to.be.null;
         });
     });
 
@@ -533,12 +525,11 @@ describe('vision-utils', function() {
             expect(mockDone.calledOnce).to.be.true;
         });
 
-        it('should extract image_id from payload', function() {
+        it('should reject when image_id only in payload (not canonical)', function() {
             const msg = { payload: { image_id: 'payload123' } };
             const result = visionUtils.validateInput(mockNode, msg, mockDone);
 
-            expect(result.valid).to.be.true;
-            expect(result.imageId).to.equal('payload123');
+            expect(result.valid).to.be.false;
         });
     });
 });

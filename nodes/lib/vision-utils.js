@@ -332,13 +332,14 @@ function validateRequiredFields(msg, requiredFields, node, done) {
 
 /**
  * Extract image_id from message
- * Supports multiple common locations
+ *
+ * Canonical location is msg.image_id (set by all source nodes and preprocess).
  *
  * @param {object} msg - Message object
  * @returns {string|null} Image ID or null if not found
  */
 function getImageId(msg) {
-    return msg.image_id || msg.payload?.image_id || null;
+    return msg.image_id || null;
 }
 
 /**
