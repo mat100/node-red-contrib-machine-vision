@@ -318,8 +318,8 @@ describe('vision-utils', function() {
                 });
                 expect.fail('Should have thrown error');
             } catch (error) {
-                expect(mockNode.error.called).to.be.true;
                 expect(mockDone.called).to.be.true;
+                expect(mockDone.firstCall.args[0]).to.be.an('error');
                 expect(error.handledByUtils).to.be.true;
             }
         });
@@ -399,7 +399,7 @@ describe('vision-utils', function() {
                 });
                 expect.fail('Should have thrown error');
             } catch (error) {
-                expect(mockNode.error.called).to.be.true;
+                expect(mockDone.called).to.be.true;
                 expect(error.handledByUtils).to.be.true;
             }
         });
@@ -543,15 +543,15 @@ describe('vision-utils', function() {
             const result = visionUtils.validateInput(mockNode, msg, mockDone);
 
             expect(result.valid).to.be.false;
-            expect(mockNode.error.calledOnce).to.be.true;
             expect(mockDone.calledOnce).to.be.true;
+            expect(mockDone.firstCall.args[0]).to.be.an('error');
         });
 
         it('should use correct error message for missing image.id', function() {
             const msg = {};
             visionUtils.validateInput(mockNode, msg, mockDone);
 
-            expect(mockNode.error.firstCall.args[0]).to.equal('No image.id provided');
+            expect(mockDone.firstCall.args[0].message).to.equal('No image.id provided');
             const statusCall = mockNode.status.getCall(0).args[0];
             expect(statusCall.text).to.include('missing image.id');
         });

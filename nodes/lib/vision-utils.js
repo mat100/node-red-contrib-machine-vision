@@ -230,7 +230,6 @@ async function callVisionAPI(options) {
         ({ apiUrl, timeout, headers } = getApiSettings(apiConfig));
     } catch (error) {
         setNodeStatus(node, 'error', 'no config');
-        node.error(error.message);
         if (done) {
             done(error);
         }
@@ -264,21 +263,26 @@ async function callVisionAPI(options) {
                 ? (rawDetail.details || rawDetail.error || JSON.stringify(rawDetail))
                 : (rawDetail || error.response.statusText);
 
+            // Truncate detail for node status (max 40 chars)
+            const shortDetail = typeof detail === 'string' && detail.length > 40
+                ? detail.substring(0, 37) + '...'
+                : detail;
+
             if (status === 404) {
                 errorMessage = `Not found: ${detail}`;
-                statusMessage = 'not found';
+                statusMessage = shortDetail || 'not found';
             } else if (status === 400) {
                 errorMessage = `Invalid request: ${detail}`;
-                statusMessage = 'invalid request';
+                statusMessage = shortDetail || 'invalid request';
             } else if (status === 401 || status === 403) {
                 errorMessage = `Authentication error: ${detail}`;
-                statusMessage = 'auth error';
+                statusMessage = shortDetail || 'auth error';
             } else if (status >= 500) {
                 errorMessage = `Server error: ${detail}`;
-                statusMessage = 'server error';
+                statusMessage = shortDetail || 'server error';
             } else {
                 errorMessage = `API error (${status}): ${detail}`;
-                statusMessage = `error ${status}`;
+                statusMessage = shortDetail || `error ${status}`;
             }
         } else if (error.request) {
             // Network error - no response received
@@ -294,11 +298,10 @@ async function callVisionAPI(options) {
             statusMessage = 'error';
         }
 
-        // Update node status and log error
+        // Update node status
         setNodeStatus(node, 'error', statusMessage);
-        node.error(errorMessage);
 
-        // Call done with error
+        // Call done with error (this also logs via node.error internally)
         if (done) {
             done(new Error(errorMessage));
         }
@@ -398,7 +401,6 @@ async function callCameraAPI(options) {
     } catch (error) {
         if (node) {
             setNodeStatus(node, 'error', CONSTANTS.STATUS_TEXT.NO_CONFIG);
-            node.error(error.message);
         }
         if (done) done(error);
         throw error;
@@ -432,9 +434,9 @@ async function callCameraAPI(options) {
         if (node) {
             const statusMessage = getStatusMessage(error);
             setNodeStatus(node, 'error', statusMessage);
-            node.error(errorMessage);
         }
 
+        // done(error) handles logging via node.error() in Node-RED runtime
         if (done) {
             done(new Error(errorMessage));
         }
@@ -476,7 +478,6 @@ async function callImageAPI(options) {
     } catch (error) {
         if (node) {
             setNodeStatus(node, 'error', CONSTANTS.STATUS_TEXT.NO_CONFIG);
-            node.error(error.message);
         }
         if (done) done(error);
         throw error;
@@ -499,9 +500,9 @@ async function callImageAPI(options) {
         if (node) {
             const statusMessage = getStatusMessage(error);
             setNodeStatus(node, 'error', statusMessage);
-            node.error(errorMessage);
         }
 
+        // done(error) handles logging via node.error() in Node-RED runtime
         if (done) {
             done(new Error(errorMessage));
         }
@@ -524,7 +525,11 @@ async function callImageAPI(options) {
 function extractErrorMessage(error, url, timeout) {
     if (error.response) {
         const status = error.response.status;
-        const detail = error.response.data?.detail || error.response.statusText;
+        const rawDetail = error.response.data?.detail;
+        // detail can be a string or object (from @safe_endpoint's HTTPException)
+        const detail = (typeof rawDetail === 'object' && rawDetail !== null)
+            ? (rawDetail.details || rawDetail.error || JSON.stringify(rawDetail))
+            : (rawDetail || error.response.statusText);
 
         if (status === 404) return `Not found: ${detail}`;
         if (status === 400) return `Invalid request: ${detail}`;
@@ -551,13 +556,26 @@ function extractErrorMessage(error, url, timeout) {
  * @returns {string} Status message
  */
 function getStatusMessage(error) {
+    // Extract detail for status display (same logic as extractErrorMessage)
+    let detail = null;
+    if (error.response) {
+        const rawDetail = error.response.data?.detail;
+        detail = (typeof rawDetail === 'object' && rawDetail !== null)
+            ? (rawDetail.details || rawDetail.error || null)
+            : rawDetail;
+    }
+    // Truncate for node status (max 40 chars)
+    const shortDetail = (typeof detail === 'string' && detail.length > 40)
+        ? detail.substring(0, 37) + '...'
+        : detail;
+
     if (error.response) {
         const status = error.response.status;
-        if (status === 404) return CONSTANTS.STATUS_TEXT.NOT_FOUND;
-        if (status === 400) return CONSTANTS.STATUS_TEXT.INVALID_REQUEST;
-        if (status === 401 || status === 403) return CONSTANTS.STATUS_TEXT.AUTH_ERROR;
-        if (status >= 500) return CONSTANTS.STATUS_TEXT.SERVER_ERROR;
-        return `error ${status}`;
+        if (status === 404) return shortDetail || CONSTANTS.STATUS_TEXT.NOT_FOUND;
+        if (status === 400) return shortDetail || CONSTANTS.STATUS_TEXT.INVALID_REQUEST;
+        if (status === 401 || status === 403) return shortDetail || CONSTANTS.STATUS_TEXT.AUTH_ERROR;
+        if (status >= 500) return shortDetail || CONSTANTS.STATUS_TEXT.SERVER_ERROR;
+        return shortDetail || `error ${status}`;
     }
 
     if (error.request) {
@@ -817,7 +835,6 @@ function clearRateLimit(key) {
 function validateInput(node, msg, done) {
     const imageId = getImageId(msg);
     if (!imageId) {
-        node.error('No image.id provided', msg);
         setNodeStatus(node, 'error', 'missing image.id');
         done(new Error('No image.id provided'));
         return { valid: false };

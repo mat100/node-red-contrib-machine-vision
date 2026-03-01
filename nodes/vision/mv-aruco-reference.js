@@ -85,7 +85,6 @@ module.exports = function(RED) {
                     }
                 };
             } else {
-                node.error(`Invalid mode: ${node.mode}`, msg);
                 setNodeStatus(node, 'error', 'invalid mode');
                 return done(new Error(`Invalid mode: ${node.mode}`));
             }

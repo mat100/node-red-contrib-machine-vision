@@ -156,16 +156,13 @@ describe('Camera Nodes (Mock Integration)', function() {
             };
             const nodeInstance = new NodeConstructor(config);
 
-            // Override node.error to capture error
-            nodeInstance.error = sinon.stub().callsFake(function() {
-                // Error was logged
-                done();
-            });
-
             const inputHandler = node.on.withArgs('input').getCall(0).args[1];
 
             const msg = { payload: 'capture' };
-            inputHandler.call(nodeInstance, msg, () => {}, () => {});
+            const doneFn = sinon.stub().callsFake(function(err) {
+                if (err) done();
+            });
+            inputHandler.call(nodeInstance, msg, () => {}, doneFn);
         });
 
         it('should auto-connect camera on startup when autoConnect is true', function(done) {

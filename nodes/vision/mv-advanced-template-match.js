@@ -45,7 +45,6 @@ module.exports = function(RED) {
             // Get template ID
             const templateId = msg.templateId || node.templateId;
             if (!templateId) {
-                node.error('No template_id configured', msg);
                 setNodeStatus(node, 'error', 'missing template');
                 return done(new Error('No template_id configured'));
             }

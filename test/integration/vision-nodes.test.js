@@ -879,15 +879,13 @@ describe('Vision Nodes (Mock Integration)', function() {
             };
             const nodeInstance = new NodeConstructor(config);
 
-            // Override node.error to capture error
-            nodeInstance.error = sinon.stub().callsFake(function() {
-                done();
-            });
-
             const inputHandler = node.on.withArgs('input').getCall(0).args[1];
 
             const msg = { image: { id: 'img_error', format: 'jpeg', width: 640, height: 480, source: 'camera', timestamp: '2025-01-01T00:00:00Z' } };
-            inputHandler.call(nodeInstance, msg, () => {}, () => {});
+            const doneFn = sinon.stub().callsFake(function(err) {
+                if (err) done();
+            });
+            inputHandler.call(nodeInstance, msg, () => {}, doneFn);
         });
 
         it('should handle missing image.id in template-match', function(done) {

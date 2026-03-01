@@ -31,7 +31,6 @@ module.exports = function(RED) {
             // Get contour from message (required input from edge detection)
             const contour = msg.payload?.contour;
             if (!contour || !Array.isArray(contour)) {
-                node.error('No contour found in msg.payload.contour', msg);
                 setNodeStatus(node, 'error', 'missing contour');
                 return done(new Error('No contour found in msg.payload.contour'));
             }
