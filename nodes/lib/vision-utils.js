@@ -9,6 +9,32 @@ const axios = require('axios');
 const CONSTANTS = require('./constants');
 
 /**
+ * @typedef {Object} VisionObjectMessage
+ * @description Standardized Node-RED message produced by all vision nodes.
+ * Every vision node outputs messages conforming to this structure.
+ *
+ * @property {Object} payload - VisionObject payload
+ * @property {string} payload.object_id - Unique identifier for the detected object
+ * @property {string} payload.object_type - Type of detection (e.g., 'edge_contour', 'template_match')
+ * @property {string} payload.image_id - Source image identifier
+ * @property {string} payload.timestamp - ISO 8601 timestamp
+ * @property {Object} payload.bounding_box - Bounding box {x, y, width, height}
+ * @property {Object} payload.center - Center point {x, y}
+ * @property {number} payload.confidence - Detection confidence (0-1)
+ * @property {string} payload.thumbnail - Base64-encoded thumbnail image
+ * @property {Object} payload.properties - Detection-specific properties
+ * @property {number} [payload.area] - Object area in pixels
+ * @property {number} [payload.perimeter] - Object perimeter in pixels
+ * @property {number} [payload.rotation] - Rotation angle in degrees
+ * @property {Array} [payload.contour] - Contour points array
+ * @property {boolean} success - Whether the detection succeeded
+ * @property {number} processing_time_ms - Backend processing time in milliseconds
+ * @property {string} node_name - Display name of the producing node
+ * @property {Object} [reference_object] - ArUco reference coordinate system (if set by aruco-reference/aruco-detect)
+ * @property {string} [image_id] - New image ID (set by preprocess node when a new image is created)
+ */
+
+/**
  * Status configuration constants
  */
 const STATUS = {
@@ -148,6 +174,23 @@ function createVisionObjectMessage(obj, imageId, timestamp, thumbnail, msg, RED)
     }
 
     return outputMsg;
+}
+
+/**
+ * Add standard metadata to an output message
+ *
+ * Replaces the duplicated 3-line pattern (success, processing_time_ms, node_name)
+ * found across all vision and camera nodes.
+ *
+ * @param {Object} outputMsg - The output message to annotate
+ * @param {Object} node - Node-RED node instance (for node.name)
+ * @param {Object} result - API response containing processing_time_ms
+ * @param {string} defaultName - Fallback name when node.name is not set
+ */
+function addMessageMetadata(outputMsg, node, result, defaultName) {
+    outputMsg.success = true;
+    outputMsg.processing_time_ms = result.processing_time_ms;
+    outputMsg.node_name = node.name || defaultName;
 }
 
 /**
@@ -309,41 +352,6 @@ function getTimestamp(msg) {
 }
 
 /**
- * Create VisionObject payload for camera/import nodes
- *
- * Standardizes the VisionObject structure used by camera-capture,
- * image-import, and image-simulator nodes.
- *
- * @param {string} imageId - Image ID from API response
- * @param {string} timestamp - ISO timestamp
- * @param {object} metadata - Image metadata (width, height)
- * @param {string} thumbnail - Base64 encoded thumbnail
- * @param {string} objectType - Object type (e.g., 'camera_capture', 'image_import')
- * @returns {object} VisionObject payload
- */
-function createCameraVisionObject(imageId, timestamp, metadata, thumbnail, objectType) {
-    return {
-        object_id: `img_${imageId.substring(0, 8)}`,
-        object_type: objectType,
-        image_id: imageId,
-        timestamp: timestamp,
-        bounding_box: {
-            x: 0,
-            y: 0,
-            width: metadata.width,
-            height: metadata.height
-        },
-        center: {
-            x: metadata.width / 2,
-            y: metadata.height / 2
-        },
-        confidence: 1.0,
-        thumbnail: thumbnail,
-        properties: {}
-    };
-}
-
-/**
  * Call camera API with consistent error handling
  *
  * Wrapper for camera-related API calls (connect, capture, disconnect, etc.)
@@ -418,6 +426,9 @@ async function callCameraAPI(options) {
             done(new Error(errorMessage));
         }
 
+        // Mark error as handled so nodes don't double-call done()
+        error.handledByUtils = true;
+
         throw error;
     }
 }
@@ -481,6 +492,9 @@ async function callImageAPI(options) {
         if (done) {
             done(new Error(errorMessage));
         }
+
+        // Mark error as handled so nodes don't double-call done()
+        error.handledByUtils = true;
 
         throw error;
     }
@@ -963,7 +977,7 @@ module.exports = {
 
     // Message Building
     createVisionObjectMessage,
-    createCameraVisionObject,
+    addMessageMetadata,
 
     // API Wrappers
     callVisionAPI,

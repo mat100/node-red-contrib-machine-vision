@@ -1,6 +1,7 @@
 module.exports = function(RED) {
     const {
         setNodeStatus,
+        addMessageMetadata,
         callVisionAPI,
         validateInput,
         CONSTANTS
@@ -99,9 +100,7 @@ module.exports = function(RED) {
                 }
 
                 // Metadata in root
-                outputMsg.success = true;
-                outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || 'Rotation Detection';
+                addMessageMetadata(outputMsg, node, result, 'Rotation Detection');
 
                 // Status message showing absolute and relative angles
                 let statusText = `${obj.rotation.toFixed(1)}°`;

@@ -12,8 +12,8 @@ module.exports = function(RED) {
             done = done || function(err) { if(err) node.error(err, msg); };
 
             // Pass through the thumbnail for display
-            if (msg.thumbnail || msg.payload?.thumbnail_base64) {
-                msg.payload = msg.thumbnail || msg.payload.thumbnail_base64;
+            if (msg.payload?.thumbnail) {
+                msg.payload = msg.payload.thumbnail;
             }
 
             send(msg);

@@ -2,6 +2,7 @@ module.exports = function(RED) {
     const {
         setNodeStatus,
         createVisionObjectMessage,
+        addMessageMetadata,
         callVisionAPI,
         getTimestamp,
         validateInput,
@@ -166,9 +167,7 @@ module.exports = function(RED) {
                 );
 
                 // Add preprocessing-specific metadata
-                outputMsg.success = true;
-                outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || 'Preprocess';
+                addMessageMetadata(outputMsg, node, result, 'Preprocess');
                 outputMsg.image_id = obj.properties.image_id;  // New image ID for downstream nodes
                 outputMsg.source_image_id = obj.properties.source_image_id;  // Original image ID
 

@@ -107,35 +107,38 @@ describe('vision-utils', function() {
         });
     });
 
-    describe('createCameraVisionObject', function() {
+    describe('addMessageMetadata', function() {
 
-        it('should create valid VisionObject structure', function() {
-            const imageId = 'abc123def456';
-            const timestamp = '2025-01-01T00:00:00Z';
-            const metadata = { width: 640, height: 480 };
-            const thumbnail = 'base64data';
-            const objectType = CONSTANTS.OBJECT_TYPES.CAMERA_CAPTURE;
+        it('should set success, processing_time_ms, and node_name', function() {
+            const outputMsg = {};
+            const node = { name: 'My Edge' };
+            const result = { processing_time_ms: 42 };
 
-            const result = visionUtils.createCameraVisionObject(
-                imageId, timestamp, metadata, thumbnail, objectType
-            );
+            visionUtils.addMessageMetadata(outputMsg, node, result, 'Edge Detection');
 
-            expect(result).to.have.property('object_id', 'img_abc123de');
-            expect(result).to.have.property('object_type', objectType);
-            expect(result).to.have.property('image_id', imageId);
-            expect(result).to.have.property('timestamp', timestamp);
-            expect(result).to.have.property('confidence', 1.0);
-            expect(result).to.have.property('thumbnail', thumbnail);
+            expect(outputMsg).to.have.property('success', true);
+            expect(outputMsg).to.have.property('processing_time_ms', 42);
+            expect(outputMsg).to.have.property('node_name', 'My Edge');
+        });
 
-            expect(result.bounding_box).to.deep.equal({
-                x: 0, y: 0, width: 640, height: 480
-            });
+        it('should use defaultName when node.name is empty', function() {
+            const outputMsg = {};
+            const node = { name: '' };
+            const result = { processing_time_ms: 10 };
 
-            expect(result.center).to.deep.equal({
-                x: 320, y: 240
-            });
+            visionUtils.addMessageMetadata(outputMsg, node, result, 'Camera Capture');
 
-            expect(result.properties).to.deep.equal({});
+            expect(outputMsg).to.have.property('node_name', 'Camera Capture');
+        });
+
+        it('should use defaultName when node.name is undefined', function() {
+            const outputMsg = {};
+            const node = {};
+            const result = { processing_time_ms: 5 };
+
+            visionUtils.addMessageMetadata(outputMsg, node, result, 'ROI Extract');
+
+            expect(outputMsg).to.have.property('node_name', 'ROI Extract');
         });
     });
 
@@ -303,6 +306,7 @@ describe('vision-utils', function() {
             } catch (error) {
                 expect(mockNode.error.called).to.be.true;
                 expect(mockDone.called).to.be.true;
+                expect(error.handledByUtils).to.be.true;
             }
         });
 
@@ -382,6 +386,7 @@ describe('vision-utils', function() {
                 expect.fail('Should have thrown error');
             } catch (error) {
                 expect(mockNode.error.called).to.be.true;
+                expect(error.handledByUtils).to.be.true;
             }
         });
     });

@@ -24,11 +24,9 @@ module.exports = function(RED) {
             done = done || function(err) { if(err) node.error(err, msg); };
 
             try {
-                // Get and validate image_id from message payload
-                const imageId = msg.payload?.image_id;
-                if (!imageId) {
-                    throw new Error('No image_id in msg.payload');
-                }
+                // Get and validate image_id using shared utility
+                const { valid, imageId } = visionUtils.validateInput(node, msg, done);
+                if (!valid) return;
 
                 // Validate image ID for security
                 const imageIdValidation = visionUtils.validateImageId(imageId);
@@ -104,27 +102,24 @@ module.exports = function(RED) {
                     processingTime
                 );
 
-                // Preserve input VisionObject, only update bbox, center, and thumbnail
-                const outputPayload = {...msg.payload};
-                outputPayload.bounding_box = visionObject.bounding_box;
-                outputPayload.center = visionObject.center;
-                outputPayload.thumbnail = result.thumbnail_base64;
-                outputPayload.area = visionObject.area;
+                // Clone message to avoid mutating the original (safe for multi-output wires)
+                const outputMsg = RED.util.cloneMessage(msg);
 
-                msg.payload = outputPayload;
+                // Preserve input VisionObject, only update bbox, center, and thumbnail
+                outputMsg.payload.bounding_box = visionObject.bounding_box;
+                outputMsg.payload.center = visionObject.center;
+                outputMsg.payload.thumbnail = result.thumbnail_base64;
+                outputMsg.payload.area = visionObject.area;
 
                 // Metadata in message root
-                msg.success = true;
-                msg.processing_time_ms = processingTime;
-                msg.node_name = node.name || 'ROI Extract';
+                visionUtils.addMessageMetadata(outputMsg, node, result, 'ROI Extract');
 
-                send(msg);
+                send(outputMsg);
                 done();
 
             } catch (error) {
                 // Error already handled by callImageAPI
-                if (!error.response) {
-                    // Only handle non-API errors here
+                if (!error.handledByUtils) {
                     done(error);
                 }
             }

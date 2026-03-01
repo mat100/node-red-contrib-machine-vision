@@ -68,11 +68,9 @@ module.exports = function(RED) {
                 );
 
                 // Add metadata in root
-                outputMsg.success = true;
-                outputMsg.processing_time_ms = result.processing_time_ms;
+                visionUtils.addMessageMetadata(outputMsg, node, result, 'Test Image');
                 outputMsg.test_id = result.test_id;
                 outputMsg.test_image_name = node.testImageName;
-                outputMsg.node_name = node.name || 'Test Image';
 
                 visionUtils.setNodeStatus(node, 'success',
                     `captured: ${imageId.substring(0, 8)}...`,
@@ -84,8 +82,7 @@ module.exports = function(RED) {
 
             } catch (error) {
                 // Error already handled by callCameraAPI
-                if (!error.response) {
-                    // Only handle non-API errors here
+                if (!error.handledByUtils) {
                     visionUtils.setNodeStatus(node, 'error', 'capture failed');
                     done(error);
                 }

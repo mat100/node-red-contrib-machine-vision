@@ -65,7 +65,7 @@ describe('mv-overlay Node (Mock Integration)', function() {
         expect(node.status.called).to.be.true;
     });
 
-    it('should pass through thumbnail from msg.thumbnail', function(done) {
+    it('should pass through thumbnail from msg.payload.thumbnail', function(done) {
         // Initialize the node module and get constructor
         overlayNode(RED);
         const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -81,52 +81,25 @@ describe('mv-overlay Node (Mock Integration)', function() {
         // Mock send and done functions
         const send = sinon.stub();
         const mockDone = sinon.stub().callsFake(function() {
-            // Verify the message was sent with correct payload
+            // Verify the message was sent with thumbnail as payload
             expect(send.calledOnce).to.be.true;
             const sentMsg = send.getCall(0).args[0];
             expect(sentMsg.payload).to.equal('base64_thumbnail_data');
             done();
         });
 
-        // Simulate input message
-        const msg = {
-            thumbnail: 'base64_thumbnail_data'
-        };
-
-        inputHandler.call(node, msg, send, mockDone);
-    });
-
-    it('should pass through thumbnail from msg.payload.thumbnail_base64', function(done) {
-        // Initialize the node module
-        overlayNode(RED);
-        const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
-
-        // Create node instance
-        new NodeConstructor({});
-
-        // Get the input handler that was registered
-        const inputHandler = node.on.withArgs('input').getCall(0).args[1];
-
-        // Mock send and done functions
-        const send = sinon.stub();
-        const mockDone = sinon.stub().callsFake(function() {
-            expect(send.calledOnce).to.be.true;
-            const sentMsg = send.getCall(0).args[0];
-            expect(sentMsg.payload).to.equal('base64_from_payload');
-            done();
-        });
-
-        // Simulate input message
+        // Simulate input message with VisionObject payload containing thumbnail
         const msg = {
             payload: {
-                thumbnail_base64: 'base64_from_payload'
+                thumbnail: 'base64_thumbnail_data',
+                object_type: 'edge_contour'
             }
         };
 
         inputHandler.call(node, msg, send, mockDone);
     });
 
-    it('should prefer msg.thumbnail over msg.payload.thumbnail_base64', function(done) {
+    it('should pass through message unchanged when no thumbnail present', function(done) {
         // Initialize the node module
         overlayNode(RED);
         const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
@@ -142,15 +115,54 @@ describe('mv-overlay Node (Mock Integration)', function() {
         const mockDone = sinon.stub().callsFake(function() {
             expect(send.calledOnce).to.be.true;
             const sentMsg = send.getCall(0).args[0];
-            expect(sentMsg.payload).to.equal('thumbnail_priority');
+            // Payload should remain unchanged when no thumbnail
+            expect(sentMsg.payload).to.deep.equal({ object_type: 'edge_contour' });
             done();
         });
 
-        // Simulate input message
+        // Simulate input message without thumbnail
         const msg = {
-            thumbnail: 'thumbnail_priority',
             payload: {
-                thumbnail_base64: 'payload_thumbnail'
+                object_type: 'edge_contour'
+            }
+        };
+
+        inputHandler.call(node, msg, send, mockDone);
+    });
+
+    it('should extract thumbnail from standard VisionObject message', function(done) {
+        // Initialize the node module
+        overlayNode(RED);
+        const NodeConstructor = RED.nodes.registerType.getCall(0).args[1];
+
+        // Create node instance
+        new NodeConstructor({});
+
+        // Get the input handler that was registered
+        const inputHandler = node.on.withArgs('input').getCall(0).args[1];
+
+        // Mock send and done functions
+        const send = sinon.stub();
+        const mockDone = sinon.stub().callsFake(function() {
+            expect(send.calledOnce).to.be.true;
+            const sentMsg = send.getCall(0).args[0];
+            expect(sentMsg.payload).to.equal('thumb_data');
+            done();
+        });
+
+        // Full VisionObject message as produced by createVisionObjectMessage
+        const msg = {
+            success: true,
+            processing_time_ms: 42,
+            payload: {
+                object_id: 'obj_1',
+                object_type: 'edge_contour',
+                image_id: 'img_123',
+                thumbnail: 'thumb_data',
+                bounding_box: { x: 0, y: 0, width: 100, height: 100 },
+                center: { x: 50, y: 50 },
+                confidence: 0.95,
+                properties: {}
             }
         };
 
@@ -174,7 +186,10 @@ describe('mv-overlay Node (Mock Integration)', function() {
 
         // Simulate input message WITHOUT providing send/done
         const msg = {
-            thumbnail: 'test_thumbnail'
+            payload: {
+                thumbnail: 'test_thumbnail',
+                object_type: 'camera_capture'
+            }
         };
 
         // Call handler without send/done - this triggers the fallback compatibility code

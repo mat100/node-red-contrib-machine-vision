@@ -2,6 +2,7 @@ module.exports = function(RED) {
     const {
         setNodeStatus,
         createVisionObjectMessage,
+        addMessageMetadata,
         callVisionAPI,
         getTimestamp,
         validateInput,
@@ -86,9 +87,7 @@ module.exports = function(RED) {
                 );
 
                 // Add metadata in root
-                outputMsg.success = true;
-                outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || 'Color Detection';
+                addMessageMetadata(outputMsg, node, result, 'Color Detection');
 
                 send(outputMsg);
 

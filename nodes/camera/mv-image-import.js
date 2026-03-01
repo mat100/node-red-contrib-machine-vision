@@ -58,9 +58,7 @@ module.exports = function(RED) {
                 );
 
                 // Add metadata in root
-                outputMsg.success = true;
-                outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || 'Image Import';
+                visionUtils.addMessageMetadata(outputMsg, node, result, 'Image Import');
 
                 visionUtils.setNodeStatus(node, 'success', `imported: ${imageId.substring(0, 8)}...`);
 
@@ -69,8 +67,7 @@ module.exports = function(RED) {
 
             } catch (error) {
                 // Error already handled by callImageAPI
-                if (!error.response) {
-                    // Only handle non-API errors here
+                if (!error.handledByUtils) {
                     visionUtils.setNodeStatus(node, 'error', 'import failed');
                     done(error);
                 }

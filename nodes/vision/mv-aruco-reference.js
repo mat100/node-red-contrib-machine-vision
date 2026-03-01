@@ -1,6 +1,7 @@
 module.exports = function(RED) {
     const {
         setNodeStatus,
+        addMessageMetadata,
         callVisionAPI,
         validateInput,
         CONSTANTS
@@ -115,9 +116,7 @@ module.exports = function(RED) {
                 outputMsg.reference_object = result.reference_object;
 
                 // Add metadata in root
-                outputMsg.success = true;
-                outputMsg.processing_time_ms = result.processing_time_ms;
-                outputMsg.node_name = node.name || 'ArUco Reference';
+                addMessageMetadata(outputMsg, node, result, 'ArUco Reference');
                 outputMsg.markers = result.markers; // Include detected markers for debugging
 
                 // Update status
